@@ -1,0 +1,153 @@
+# kbdx provides 4 implicit layers which can be inherited from
+# "source": a layer where each key is mapped to itself. This is useful for the starting layer
+# "fallthrough": a layer equivalent to ALL underscores, so all keypresses go through to the next layer
+# "block": a layer equivalent to ALL "XX"'s, so all keypresses do NOT go through to the next layer
+# "default": this is assigned to "fallthrough" if configuration.fallthrough = true, and "block" otherwise. If a layer omits its parent, it will inherit from this layer
+#
+# regardless of what you put in configuration.fallthrough, the transpiled kbd file will always have fallthrough set to true
+# later on in the document, you will see why this is useful
+
+[configuration]
+input = "/dev/input/by-id/usb-Logitech_USB_Receiver-if02-event-kbd"
+
+output.name = "Logitech KMonad Output"
+output.pre_command = "/run/current-system/sw/bin/sleep 1 && /run/current-system/sw/bin/setxkbmap -option compose:ralt"
+
+cmp-seq = 'rctrl'
+cmp-seq-delay = 5
+
+fallthrough = true
+allow-cmd = true
+
+# indicate which layer you want to be in when KMonad launches
+starting-layer = base
+
+# behavior: if you want every layer to include mappings for every key to itself, but without falling through to the base layer
+# I can't think of a real usecase for changing the default parent away from "default", but this setting is here if you want it
+# default-parent = source
+
+# any heading that contains a "keys" item is a layer
+# otherwise it is used purely for organization
+[base]
+# you need this to be able to type normally
+# if you do not specify this, you will get an error
+parent = source
+# [[keys]] defines the different keymappings for the layer
+[[keys]]
+# use the "<layer name>:<button name>" syntax to reference buttons defined under layers
+lmet = leader:enter
+
+[leader]
+# we do not want keys to fallthrough to the next layer
+parent = block
+# layers can choose which buttons they want to expose to the outside
+# buttons defined under [[public]] can be accessed using the aforementioned "<layer name>:<button name>" syntax
+[[public]]
+# SYNTAX
+# <button name> = <lisp expression>
+# the syntax for defining buttons is unchanged from kbd
+enter = (tap-hold-next-release 250 (around-next (layer-toggle leader)) lmet)
+[[keys]]
+# you can reference aliases that appear later in the document
+q = window-switcher
+d = discord
+r = run:enter
+lmet = lmet
+
+# you can put global aliases in the "aliases" table if you do not need a whole layer
+[aliases]
+window-switcher = (cmd-button "rofi -noplugins -modi window -show window -lines 5 --normal-window")
+
+# every "instance" of "aliases" will be merged into one
+[aliases]
+discord = (cmd-button "wmctrl -a discord || |>DISCORD<|")
+
+[run]
+[[public]]
+runner = (cmd-button "|>RUNNER_SCRIPT<|")
+# notice that we already defined an "enter" under the leader layer
+# because buttons defined under layers are namespaced, the 2 do not collide
+# however, there WILL still be collision if you define 2 buttons with the same name WITHIN a layer or within the global [aliases] table
+#
+# tap macro syntactic sugar works just like in kbd
+# also, to use named buttons in other named button definitions, you need to use the @ symbol so kbdx knows to replace it
+# using @ is not necessary in [[keys]]
+enter = #(@runner (layer-add run))
+# buttons defined under [[private]] CANNOT be accessed using the "<layer name>:<button name>" syntax
+# you can use [[private]] for layer-internal buttons
+[[private]]
+exit = #((layer-rem run) (cmd-button "killall st"))
+[[keys]]
+# right-hand-side value resolution
+# 1. see if it is a direct lisp button expression
+# 2. if not a button, look under [[private]] and [[public]]
+# 3. look under aliases
+lmet = exit
+
+[aliases]
+agenda = (cmd-button "kitty |>TASKWARRIOR_TUI<|")
+
+[aliases]
+org-capture = (cmd-button "~/.local/bin/org-capture"))
+
+[scroll]
+[[public]]
+enter = (layer-add scroll)
+[[private]]
+exit = (layer-rem scroll)
+
+left  = (cmd-button "|>SCROLL_SCRIPT<| h -" "|>SCROLL_SCRIPT<| h 0")
+up    = (cmd-button "|>SCROLL_SCRIPT<| v -" "|>SCROLL_SCRIPT<| v 0")
+down  = (cmd-button "|>SCROLL_SCRIPT<| v +" "|>SCROLL_SCRIPT<| v 0")
+right = (cmd-button "|>SCROLL_SCRIPT<| h +" "|>SCROLL_SCRIPT<| h 0")
+
+speed-up   = (cmd-button "|>SCROLL_SPEED_SCRIPT<| 50"  "|>SCROLL_SPEED_SCRIPT<| 0")
+speed-down = (cmd-button "|>SCROLL_SPEED_SCRIPT<| 200" "|>SCROLL_SPEED_SCRIPT<| 0")
+[[keys]]
+h = left
+j = down
+k = up
+l = right
+# assign both the left control and caps lock keys to speed-down
+# we use curly braces because square brackets are already taken by the TOML syntax
+{lctl, caps} = speed-down
+lsft = speed-up
+
+tab = scroll.arrow-keys:enter
+
+# if kbdx does not recognize the subtable name, it is interpreted as a NESTED LAYER
+# nested layers can be referenced using "<parent layer>:<child layer>", and must be FULLY QUALIFIED regardless of the context
+# it is a warning to use a nested layer from outside of the "parent" (hierarchical) layer, but it is allowed
+# this means that even if you are in the context of the scroll layer, you need to reference the arrow-keys layer as scroll:arrow-keys
+# like in standard TOML, this could also be defined as [[arrow-keys]]
+# however, it can be nicer to define it at the base level to avoid an extra set of square brackets
+[scroll.arrow-keys]
+[[public]]
+enter = (layer-add &layer)
+[[private]]
+exit = (layer-rem &layer)
+[[keys]]
+# to explicitly refer to the KEY, put it in single quotes
+# even if there were buttons defined with the same name, as long as you reference them with single quotes there will not be a conflict
+h = 'left'
+j = 'down'
+k = 'up'
+l = 'right'
+
+[volume]
+[[public]]
+enter = #((cmd-button "echo 1 > |>VOLUME_SCRIPT_OSD_FILE<|") (layer-add volume))
+[[private]]
+exit = (layer-rem volume)
+
+up   = (cmd-button "|>VOLUME_SCRIPT<| +" "|>VOLUME_SCRIPT<| 0")
+down = (cmd-button "|>VOLUME_SCRIPT<| -" "|>VOLUME_SCRIPT<| 0")
+
+osd-toggle = (cmd-button "|>VOLUME_TOGGLE_OSD_SCRIPT<|")
+
+mute = (cmd-button "qdbus org.kde.kglobalaccel /component/kmix invokeShortcut mute")
+[[keys]]
+lmet = exit
+q = osd-toggle
+k = up
+j = down
