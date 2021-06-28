@@ -1,6 +1,6 @@
 #+TITLE: KMonadX
 #+begin_center
-*An extension language for ~kbd~: the keyboard programming manager [[https://github.com/kmonad/kmonad][KMonad]]'s configuration language.*
+*An extension language for* ~kbd~: *the keyboard programming manager [[https://github.com/kmonad/kmonad][KMonad]]'s configuration language.*
 #+end_center
 
 * Introduction
