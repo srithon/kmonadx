@@ -1,4 +1,4 @@
-# -*- conf-toml -*- vim: syntax=toml
+# vim: set syntax=toml: -*- conf-toml -*-
 # ^ sets syntax highlighting rules for vim and emacs
 #
 # kbdx provides 4 implicit layers which can be inherited from
