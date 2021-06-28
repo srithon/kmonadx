@@ -60,11 +60,11 @@ window-switcher = (cmd-button "rofi -noplugins -modi window -show window -lines 
 
 # every "instance" of "aliases" will be merged into one
 [aliases]
-discord = (cmd-button "wmctrl -a discord || |>DISCORD<|")
+discord = (cmd-button "wmctrl -a discord || /usr/bin/Discord")
 
 [run]
 [[public]]
-runner = (cmd-button "|>RUNNER_SCRIPT<|")
+runner = (cmd-button "~/.config/kmonad/runner/runner.sh")
 # notice that we already defined an "enter" under the leader layer
 # because buttons defined under layers are namespaced, the 2 do not collide
 # however, there WILL still be collision if you define 2 buttons with the same name WITHIN a layer or within the global [aliases] table
@@ -85,7 +85,7 @@ exit = #((layer-rem run) (cmd-button "killall st"))
 lmet = exit
 
 [aliases]
-agenda = (cmd-button "kitty |>TASKWARRIOR_TUI<|")
+agenda = (cmd-button "kitty ~/.local/bin/taskwarrior-tui")
 
 [aliases]
 org-capture = (cmd-button "~/.local/bin/org-capture"))
@@ -96,13 +96,13 @@ enter = (layer-add scroll)
 [[private]]
 exit = (layer-rem scroll)
 
-left  = (cmd-button "|>SCROLL_SCRIPT<| h -" "|>SCROLL_SCRIPT<| h 0")
-up    = (cmd-button "|>SCROLL_SCRIPT<| v -" "|>SCROLL_SCRIPT<| v 0")
-down  = (cmd-button "|>SCROLL_SCRIPT<| v +" "|>SCROLL_SCRIPT<| v 0")
-right = (cmd-button "|>SCROLL_SCRIPT<| h +" "|>SCROLL_SCRIPT<| h 0")
+left  = (cmd-button "~/.config/kmonad/scroll/scroll.sh h -" "~/.config/kmonad/scroll/scroll.sh h 0")
+up    = (cmd-button "~/.config/kmonad/scroll/scroll.sh v -" "~/.config/kmonad/scroll/scroll.sh v 0")
+down  = (cmd-button "~/.config/kmonad/scroll/scroll.sh v +" "~/.config/kmonad/scroll/scroll.sh v 0")
+right = (cmd-button "~/.config/kmonad/scroll/scroll.sh h +" "~/.config/kmonad/scroll/scroll.sh h 0")
 
-speed-up   = (cmd-button "|>SCROLL_SPEED_SCRIPT<| 50"  "|>SCROLL_SPEED_SCRIPT<| 0")
-speed-down = (cmd-button "|>SCROLL_SPEED_SCRIPT<| 200" "|>SCROLL_SPEED_SCRIPT<| 0")
+speed-up   = (cmd-button "~/.config/kmonad/scroll/scroll_speed.sh 50"  "~/.config/kmonad/scroll/scroll_speed.sh 0")
+speed-down = (cmd-button "~/.config/kmonad/scroll/scroll_speed.sh 200" "~/.config/kmonad/scroll/scroll_speed.sh 0")
 [[keys]]
 h = left
 j = down
@@ -136,14 +136,14 @@ l = 'right'
 
 [volume]
 [[public]]
-enter = #((cmd-button "echo 1 > |>VOLUME_SCRIPT_OSD_FILE<|") (layer-add volume))
+enter = #((cmd-button "echo 1 > /tmp/volume_script_osd_file") (layer-add volume))
 [[private]]
 exit = (layer-rem volume)
 
-up   = (cmd-button "|>VOLUME_SCRIPT<| +" "|>VOLUME_SCRIPT<| 0")
-down = (cmd-button "|>VOLUME_SCRIPT<| -" "|>VOLUME_SCRIPT<| 0")
+up   = (cmd-button "~/.config/kmonad/volume/volume.sh +" "~/.config/kmonad/volume/volume.sh 0")
+down = (cmd-button "~/.config/kmonad/volume/volume.sh -" "~/.config/kmonad/volume/volume.sh 0")
 
-osd-toggle = (cmd-button "|>VOLUME_TOGGLE_OSD_SCRIPT<|")
+osd-toggle = (cmd-button "~/.config/kmonad/volume/toggle_osd.sh")
 
 mute = (cmd-button "qdbus org.kde.kglobalaccel /component/kmix invokeShortcut mute")
 [[keys]]
