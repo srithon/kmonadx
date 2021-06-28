@@ -1,3 +1,6 @@
+# -*- conf-toml -*- vim: syntax=toml
+# ^ sets syntax highlighting rules for vim and emacs
+#
 # kbdx provides 4 implicit layers which can be inherited from
 # "source": a layer where each key is mapped to itself. This is useful for the starting layer
 # "fallthrough": a layer equivalent to ALL underscores, so all keypresses go through to the next layer
