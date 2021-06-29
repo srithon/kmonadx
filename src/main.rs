@@ -1,3 +1,19 @@
-fn main() {
-    println!("Hello, world!");
+use kmonadx::cli::CLI;
+use structopt::StructOpt;
+
+use kmonadx::kbdx::{ Parser, ParseError };
+
+fn main() -> Result<(), ParseError> {
+    let cli = CLI::from_args();
+
+    for file_name in cli.filenames {
+        let file_contents = std::fs::read_to_string(&file_name).unwrap();
+        let parsed_pairs = Parser::parse_string(&file_contents)?;
+
+        if !cli.check {
+            println!("{:#?}", parsed_pairs);
+        }
+    }
+
+    Ok(())
 }
