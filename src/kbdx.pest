@@ -1,0 +1,5 @@
+// the underscore makes the "main" rule silent
+// this means that it will not appear in our output
+main = _{
+  SOI ~ EOI
+}
