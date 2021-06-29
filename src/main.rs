@@ -11,7 +11,7 @@ fn main() -> Result<(), ParseError> {
         let compiled_string = kbdx::compile_string(&file_contents)?;
 
         if !cli.check {
-            println!("{:#?}", compiled_string);
+            println!("{}", compiled_string);
         }
     }
 
