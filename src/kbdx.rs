@@ -10,7 +10,12 @@ pub struct Parser;
 pub type ParseError = pest::error::Error<Rule>;
 
 impl Parser {
-    pub fn parse_string(input: &str) -> Result<Pairs<Rule>, ParseError> {
+    fn parse_string(input: &str) -> Result<Pairs<Rule>, ParseError> {
         Self::parse(Rule::main, input.as_ref())
     }
+}
+
+pub fn compile_string(input: &str) -> Result<String, ParseError> {
+    let pairs = Parser::parse_string(input)?;
+    Ok(format!("{:#?}", pairs))
 }

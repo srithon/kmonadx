@@ -1,17 +1,17 @@
 use kmonadx::cli::CLI;
 use structopt::StructOpt;
 
-use kmonadx::kbdx::{ Parser, ParseError };
+use kmonadx::kbdx::{ self, ParseError };
 
 fn main() -> Result<(), ParseError> {
     let cli = CLI::from_args();
 
     for file_name in cli.filenames {
         let file_contents = std::fs::read_to_string(&file_name).unwrap();
-        let parsed_pairs = Parser::parse_string(&file_contents)?;
+        let compiled_string = kbdx::compile_string(&file_contents)?;
 
         if !cli.check {
-            println!("{:#?}", parsed_pairs);
+            println!("{:#?}", compiled_string);
         }
     }
 
