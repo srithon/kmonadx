@@ -1,0 +1,12 @@
+# -*- TOML -*-
+# vim: syntax=toml
+
+# we support comments
+[table]
+[[nestedtable1]]
+[table.nestedtable2]
+
+# we support whitespace everywhere
+[table2]
+
+

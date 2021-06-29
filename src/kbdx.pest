@@ -1,5 +1,39 @@
+// silent rule so it does not show up in output
+// WHITESPACE is a special builtin rule that is implicitly put in around each instance of ~
+// you can stop this from happening by using atomic rules
+WHITESPACE = _{ (" " | "\n")+ }
+
+not_newline = {
+  !(NEWLINE) ~ ANY
+}
+
+// another builtin rule
+// we say that comments do not start with #( in order to disambiguate them from tap macros, which use the #( syntax
+COMMENT = _{ "#" ~ !("(") ~ not_newline*}
+
+// REGULAR ATOMIC
+// we do not want whitespace between the characters
+identifier = @{
+  ASCII_ALPHANUMERIC+
+}
+
+table = @{
+  table_header ~
+  NEWLINE
+}
+
+// table_header is atomic so it does not implicitly allow whitespace
+// it is regular atomic as opposed to "compound atomic" because we do not want all the inner rules to evaluate
+table_header = ${
+  "[" ~ (table_header | table_name) ~ "]"
+}
+
+table_name = ${
+  identifier ~ ("." ~ identifier)*
+}
+
 // the underscore makes the "main" rule silent
 // this means that it will not appear in our output
 main = _{
-  SOI ~ EOI
+  SOI ~ table* ~ EOI
 }
