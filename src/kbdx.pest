@@ -60,7 +60,7 @@ normal_button = {
      // a bunch of non-parentheses characters
      (!("(" | ")") ~ ANY)+ ~
      // followed by an optional button
-     (normal_button)?
+     (button)?
     // repeated many times
     )* ~
   // enclosed within parentheses
