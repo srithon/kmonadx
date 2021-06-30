@@ -57,14 +57,19 @@ button = {
 normal_button = {
   "(" ~
     (
-     // a bunch of non-parentheses characters
-     (!("(" | ")") ~ ANY)+ ~
+     // a bunch of non-parentheses and non-& characters
+     (!("(" | ")" | "&") ~ ANY)+ ~
+     (variable_reference)? ~
      // followed by an optional button
      (button)?
     // repeated many times
     )* ~
   // enclosed within parentheses
   ")"
+}
+
+variable_reference = ${
+  "&" ~ identifier
 }
 
 button_alias = ${
