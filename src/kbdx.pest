@@ -90,7 +90,7 @@ single_quoted_string = {
 }
 
 reference = ${
-  identifier ~ (":" ~ identifier)+
+  (identifier ~ ("." ~ identifier)*) ~ (":" ~ identifier)
 }
 
 number = @{

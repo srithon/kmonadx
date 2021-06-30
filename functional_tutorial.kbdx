@@ -43,4 +43,10 @@ reference = layer:enter
 enter = #(@runner (layer-add run))
 [[private]]
 runner = (cmd-button "~/.config/kmonad/runner/runner.sh")
+# reference to a nested layer's button using <parent layer>.<child layer>:<button name>
+enter-child-layer = run.child-layer:enter
+
+[[child-layer]]
+[[[public]]]
+enter = (layer-add run.child-layer)
 
