@@ -14,8 +14,8 @@
 [configuration]
 input = "/dev/input/by-id/usb-Logitech_USB_Receiver-if02-event-kbd"
 
-output.name = "Logitech KMonad Output"
-output.pre_command = "/run/current-system/sw/bin/sleep 1 && /run/current-system/sw/bin/setxkbmap -option compose:ralt"
+output-name = "Logitech KMonad Output"
+output-pre-command = "/run/current-system/sw/bin/sleep 1 && /run/current-system/sw/bin/setxkbmap -option compose:ralt"
 
 cmp-seq = 'rctrl'
 cmp-seq-delay = 5
