@@ -43,7 +43,7 @@ assignment = ${
   WHITESPACE? ~
   "=" ~
   WHITESPACE? ~
-  (button | string)
+  (button | string | identifier)
 }
 
 button = {

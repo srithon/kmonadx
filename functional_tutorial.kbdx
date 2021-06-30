@@ -26,3 +26,5 @@ multiline_tap_macro = #((button1)
 double_quoted_string = "hello world"
 single_quoted_string = 'hello world'
 
+[table5]
+variable_alias = some_other_variable_name
