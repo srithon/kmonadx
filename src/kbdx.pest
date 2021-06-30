@@ -74,7 +74,7 @@ button_alias = ${
 // make tap_macro non-atomic so that it has implicit whitespace even if its calling rules are atomic
 // the different elements are allowed to be on different lines and have whitespace
 tap_macro = !{
-  "#(" ~ (normal_button ~ NEWLINE?)+ ~ ")"
+  "#(" ~ ((button_alias | normal_button) ~ NEWLINE?)+ ~ ")"
 }
 
 string = _{

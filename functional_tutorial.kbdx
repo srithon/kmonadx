@@ -35,3 +35,12 @@ enter = (layer-add layer)
 
 [table6]
 reference = layer:enter
+
+[run]
+[[public]]
+# referencing the `runner` button with @runner
+# the order does not matter
+enter = #(@runner (layer-add run))
+[[private]]
+runner = (cmd-button "~/.config/kmonad/runner/runner.sh")
+
