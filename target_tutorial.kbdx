@@ -92,7 +92,7 @@ lmet = exit
 agenda = (cmd-button "kitty ~/.local/bin/taskwarrior-tui")
 
 [aliases]
-org-capture = (cmd-button "~/.local/bin/org-capture"))
+org-capture = (cmd-button "~/.local/bin/org-capture")
 
 [scroll]
 [[public]]
@@ -120,7 +120,7 @@ lsft = speed-up
 tab = scroll.arrow-keys:enter
 
 # if kbdx does not recognize the subtable name, it is interpreted as a NESTED LAYER
-# nested layers can be referenced using "<parent layer>:<child layer>", and must be FULLY QUALIFIED regardless of the context
+# nested layers can be referenced using "<parent layer>.<child layer>", and must be FULLY QUALIFIED regardless of the context
 # it is a warning to use a nested layer from outside of the "parent" (hierarchical) layer, but it is allowed
 # this means that even if you are in the context of the scroll layer, you need to reference the arrow-keys layer as scroll:arrow-keys
 # like in standard TOML, this could also be defined as [[arrow-keys]]
