@@ -58,6 +58,15 @@ normal_button = {
   "(" ~
     (
      // a bunch of non-parentheses and non-& characters
+     // we do this so that we don't consume things related to the other rules
+     //
+     // normal_button's start with an opening parenthesis ( '(' ), so we need to avoid that
+     // they end with a closing parenthesis, so we need to avoid consuming that so that the rule can exit
+     //
+     // variable references start with ampersands (&), so we need to avoid consuming that
+     //
+     // tap macros start with #, so we need to avoid consuming that
+
      (!("(" | ")" | "&") ~ ANY)+ ~
      (variable_reference)? ~
      // followed by an optional button
