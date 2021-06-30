@@ -37,10 +37,17 @@ table_body = _{
   (NEWLINE+ ~ (assignment | table))*
 }
 
-assignment = {
+// we need this rule to be atomic so that it does not look at the tap macro # mark and immediately consume till the end of the line as if it were a comment
+assignment = ${
   identifier ~
+  WHITESPACE? ~
   "=" ~
-  normal_button
+  WHITESPACE? ~
+  button
+}
+
+button = {
+  tap_macro | normal_button
 }
 
 // this rule matches parentheses
@@ -58,6 +65,11 @@ normal_button = {
   ")"
 }
 
+// make tap_macro non-atomic so that it has implicit whitespace even if its calling rules are atomic
+// the different elements are allowed to be on different lines and have whitespace
+tap_macro = !{
+  "#(" ~ (normal_button ~ NEWLINE?)+ ~ ")"
+}
 // the underscore makes the "main" rule silent
 // this means that it will not appear in our output
 main = _{

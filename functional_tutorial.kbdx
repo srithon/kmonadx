@@ -17,3 +17,9 @@ nested_multiline_button = (tap-hold-next-release 250
     )
   lmet)
 
+[table3]
+tap_macro = #((button1) (button2))
+multiline_tap_macro = #((button1)
+    (button2))
+
+
