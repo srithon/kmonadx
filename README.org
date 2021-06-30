@@ -9,7 +9,7 @@ Layer inheritance and declarative bindings (~i -> j~) are 2 of those features wh
 From this idea came ~kbdx~, a TOML-like language which aims to be expressive, readable and concise, and the ~kmonadx~ CLI tool for transpiling it to ~kbd~.
 * Documentation
 KMonadX has two sets of documentation: *Target* documentation and *Functional* documentation.
-The *Target* documentation is an example configuration which contains all the functionality KMonadX hopes to implement, while the *Functional* documentation is an example configuration which contains the functionality KMonadX /currently/ has, meaning that it compiles on ~HEAD~.
+The *Target* documentation is an example configuration which contains all the functionality KMonadX hopes to implement, while the *Functional* documentation is an example configuration which contains the functionality KMonadX /currently/ has, meaning that it compiles correctly on ~HEAD~.
 
 #+begin_center
 | [[./functional_tutorial.kbdx][Functional Documentation]] | [[./target_tutorial.kbdx][Target Documentation]] |
