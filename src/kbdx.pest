@@ -1,7 +1,7 @@
 // silent rule so it does not show up in output
 // WHITESPACE is a special builtin rule that is implicitly put in around each instance of ~
 // you can stop this from happening by using atomic rules
-WHITESPACE = _{ (" ")+ }
+WHITESPACE = _{ (" " | "\t")+ }
 
 not_newline = {
   !(NEWLINE) ~ ANY
