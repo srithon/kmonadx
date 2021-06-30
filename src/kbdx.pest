@@ -19,7 +19,7 @@ identifier = @{
 
 table = @{
   table_header ~
-  NEWLINE
+  table_body
 }
 
 // table_header is atomic so it does not implicitly allow whitespace
@@ -30,6 +30,23 @@ table_header = ${
 
 table_name = ${
   identifier ~ ("." ~ identifier)*
+}
+
+table_body = _{
+  // including the NEWLINE in the beginning of the rule to avoid handling the EOI case at the end
+  (NEWLINE+ ~ (assignment | table))*
+}
+
+assignment = {
+  identifier ~
+  "=" ~
+  normal_button
+}
+
+normal_button = {
+  "(" ~
+    (!(")") ~ ANY)* ~
+  ")"
 }
 
 // the underscore makes the "main" rule silent

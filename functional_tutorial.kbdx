@@ -5,6 +5,8 @@
 [table]
 [[nestedtable1]]
 [table.nestedtable2]
+button = (button)
+button_with_underscore = (button)
 
 # we support whitespace everywhere
 [table2]
