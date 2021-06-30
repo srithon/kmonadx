@@ -35,5 +35,5 @@ table_name = ${
 // the underscore makes the "main" rule silent
 // this means that it will not appear in our output
 main = _{
-  SOI ~ NEWLINE+ ~ table* ~ NEWLINE+ ~ EOI
+  SOI ~ NEWLINE* ~ table* ~ NEWLINE* ~ EOI
 }
