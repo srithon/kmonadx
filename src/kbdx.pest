@@ -43,7 +43,7 @@ assignment = ${
   WHITESPACE? ~
   "=" ~
   WHITESPACE? ~
-  (button | string | identifier)
+  (button | string | reference | identifier)
 }
 
 button = {
@@ -81,6 +81,10 @@ double_quoted_string = {
 
 single_quoted_string = {
   "'" ~ (!("'") ~ ANY)* ~ "'"
+}
+
+reference = ${
+  identifier ~ (":" ~ identifier)+
 }
 
 // the underscore makes the "main" rule silent

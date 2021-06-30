@@ -28,3 +28,10 @@ single_quoted_string = 'hello world'
 
 [table5]
 variable_alias = some_other_variable_name
+
+[layer]
+[[public]]
+enter = (layer-add layer)
+
+[table6]
+reference = layer:enter
