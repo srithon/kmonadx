@@ -17,7 +17,7 @@ identifier = @{
   (ASCII_ALPHANUMERIC | "_" | "-")+
 }
 
-table = @{
+table = _{
   table_header ~
   table_body
 }
