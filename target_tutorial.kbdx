@@ -114,6 +114,7 @@ k = up
 l = right
 # assign both the left control and caps lock keys to speed-down
 # we use curly braces because square brackets are already taken by the TOML syntax
+# lists do NOT accept trailing commas
 {lctl, caps} = speed-down
 lsft = speed-up
 
