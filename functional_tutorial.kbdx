@@ -10,5 +10,10 @@ button_with_underscore = (button)
 
 # we support whitespace everywhere
 [table2]
-
+nested_button = (tap-hold-next-release 250 (around-next (layer-toggle leader)) lmet)
+nested_multiline_button = (tap-hold-next-release 250
+    (around-next
+     (layer-toggle leader)
+    )
+  lmet)
 

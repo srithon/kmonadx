@@ -43,9 +43,18 @@ assignment = {
   normal_button
 }
 
+// this rule matches parentheses
+// this means that normal_button's can span over multiple lines
 normal_button = {
   "(" ~
-    (!(")") ~ ANY)* ~
+    (
+     // a bunch of non-parentheses characters
+     (!("(" | ")") ~ ANY)+ ~
+     // followed by an optional button
+     (normal_button)?
+    // repeated many times
+    )* ~
+  // enclosed within parentheses
   ")"
 }
 
