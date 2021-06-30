@@ -43,7 +43,7 @@ assignment = ${
   WHITESPACE? ~
   "=" ~
   WHITESPACE? ~
-  button
+  (button | string)
 }
 
 button = {
@@ -70,6 +70,19 @@ normal_button = {
 tap_macro = !{
   "#(" ~ (normal_button ~ NEWLINE?)+ ~ ")"
 }
+
+string = _{
+  single_quoted_string | double_quoted_string
+}
+
+double_quoted_string = {
+  "\"" ~ (!("\"") ~ ANY)* ~ "\""
+}
+
+single_quoted_string = {
+  "'" ~ (!("'") ~ ANY)* ~ "'"
+}
+
 // the underscore makes the "main" rule silent
 // this means that it will not appear in our output
 main = _{

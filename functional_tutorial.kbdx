@@ -22,4 +22,7 @@ tap_macro = #((button1) (button2))
 multiline_tap_macro = #((button1)
     (button2))
 
+[table4]
+double_quoted_string = "hello world"
+single_quoted_string = 'hello world'
 
