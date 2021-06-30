@@ -14,7 +14,7 @@ COMMENT = _{ "#" ~ !("(") ~ not_newline*}
 // REGULAR ATOMIC
 // we do not want whitespace between the characters
 identifier = @{
-  ASCII_ALPHANUMERIC+
+  (ASCII_ALPHANUMERIC | "_" | "-")+
 }
 
 table = @{
