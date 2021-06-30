@@ -52,4 +52,6 @@ enter-child-layer = run.child-layer:enter
 # "layer" is an implicit variable that holds the name of the current layer at the point of invocation
 # here, it will expand to "run.child-layer"
 enter = (layer-add &layer)
+[[[keys]]]
+{lctl, caps} = enter
 

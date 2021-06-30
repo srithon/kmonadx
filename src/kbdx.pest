@@ -41,11 +41,16 @@ table_body = _{
 
 // we need this rule to be atomic so that it does not look at the tap macro # mark and immediately consume till the end of the line as if it were a comment
 assignment = ${
-  identifier ~
+  (identifier | list) ~
   WHITESPACE? ~
   "=" ~
   WHITESPACE? ~
   (button | string | reference | number | identifier)
+}
+
+list = !{
+  // lists do NOT accept trailing commas
+  "{" ~ identifier ~ ("," ~ identifier)* ~ "}"
 }
 
 button = {
