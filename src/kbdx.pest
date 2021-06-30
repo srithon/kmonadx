@@ -9,7 +9,7 @@ not_newline = {
 
 // another builtin rule
 // we say that comments do not start with #( in order to disambiguate them from tap macros, which use the #( syntax
-COMMENT = _{ "#" ~ !("(") ~ not_newline*}
+COMMENT = _{ "#" ~ not_newline* ~ NEWLINE}
 
 // REGULAR ATOMIC
 // we do not want whitespace between the characters
