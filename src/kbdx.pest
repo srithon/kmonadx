@@ -45,7 +45,7 @@ assignment = ${
   WHITESPACE? ~
   "=" ~
   WHITESPACE? ~
-  (button | string | reference | identifier)
+  (button | string | reference | number | identifier)
 }
 
 button = {
@@ -87,6 +87,10 @@ single_quoted_string = {
 
 reference = ${
   identifier ~ (":" ~ identifier)+
+}
+
+number = @{
+  ("-" | "+")? ~ ASCII_DIGIT+ ~ &boundary
 }
 
 // the underscore makes the "main" rule silent
