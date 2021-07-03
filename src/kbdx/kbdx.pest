@@ -26,7 +26,7 @@ table = _{
 
 // table_header is atomic so it does not implicitly allow whitespace
 // it is regular atomic as opposed to "compound atomic" because we do not want all the inner rules to evaluate
-table_header = ${
+table_header = @{
   "[" ~ (table_header | table_name) ~ "]"
 }
 
@@ -116,8 +116,13 @@ number = @{
   ("-" | "+")? ~ ASCII_DIGIT+ ~ &boundary
 }
 
+// there are no nested tables inside of "configuration"
+configuration = {
+  "[configuration]" ~ NEWLINE+ ~ (assignment ~ NEWLINE+)+
+}
+
 // the underscore makes the "main" rule silent
 // this means that it will not appear in our output
 main = _{
-  SOI ~ NEWLINE* ~ table* ~ NEWLINE* ~ EOI
+  SOI ~ NEWLINE* ~ configuration ~ table* ~ NEWLINE* ~ EOI
 }
