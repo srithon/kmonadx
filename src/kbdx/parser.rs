@@ -74,7 +74,97 @@ impl Parser {
 
         eprintln!("Config: {:#?}", config_map);
 
-        Ok(Data::default())
+        let mut aliases = PairMap::default();
+        let mut layers = LayerMap::default();
+
+        let mut layer_stack: Vec<&'a str> = Vec::new();
+        let mut current_layer: Option<Layer<'a>> = None;
+
+        #[derive(Debug)]
+        enum LayerContext {
+            Private,
+            Public,
+            Keys,
+            Aliases
+        }
+
+        let mut layer_context = None;
+
+        for pair in pairs_iter {
+            use Rule as R;
+
+            match pair.as_rule() {
+                R::table_header => {
+                    let header_text = pair.as_str();
+                    // see how many ['s there are
+                    // [some_table] has a depth of 1
+                    let header_depth = header_text.chars().take_while(|&c| c == '[').count();
+
+                    // we are going deeper in the current layer
+                    let deeper_in_layer = header_depth > layer_stack.len() && layer_stack.len() != 0;
+
+                    if !deeper_in_layer {
+                        // keep popping off the stack until we are in the correct depth
+                        while header_depth <= layer_stack.len() {
+                            layer_stack.pop().expect("Layer stack should not be empty");
+                        }
+                    }
+                    // you can only add one layer of nesting at a time
+                    // more than that does not make sense
+                    // because of the way we are handling layers vs layer contexts, this also
+                    // handles the error where a user tries to nest [[[private]]] inside of
+                    // [[public]]
+                    else if header_depth > layer_stack.len() + 1 {
+                        panic!("Header is nested too far!")
+                    }
+
+                    let table_name = pair
+                        .into_inner()
+                        .next()
+                        .expect("The first child of a table_header should be a table_name");
+
+                    assert!(matches!(table_name.as_rule(), R::table_name));
+
+                    let _ = layer_context.take();
+                    for identifier in table_name.into_inner() {
+                        assert!(layer_context.is_none());
+
+                        match identifier.as_rule() {
+                            R::keyword_layer => {
+                                match identifier.as_str() {
+                                    "public" => {
+                                        layer_context.insert(LayerContext::Public);
+                                    },
+                                    "private" => {
+                                        layer_context.insert(LayerContext::Private);
+                                    },
+                                    "keys" => {
+                                        layer_context.insert(LayerContext::Keys);
+                                    },
+                                    _ => unreachable!()
+                                }
+                            },
+                            R::identifier => {
+                                layer_stack.push(identifier.as_str())
+                            },
+                            _ => unreachable!()
+                        }
+                    }
+
+                    eprintln!("Header: {}; Stack: {:#?}; Layer Context: {:#?}", header_text, layer_stack, layer_context)
+                },
+                R::header_aliases => {
+                    layer_stack.clear();
+                    layer_context.insert(LayerContext::Aliases);
+                }
+                _ => (),
+            }
+        }
+
+        Ok(Data {
+            configuration: config_map,
+            ..Data::default()
+        })
     }
 }
 
