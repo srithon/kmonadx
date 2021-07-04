@@ -13,7 +13,7 @@ pub type Pair<'a> = pest::iterators::Pair<'a, Rule>;
 use ahash::AHashMap;
 
 #[derive(Debug)]
-enum AccessModifier {
+pub enum AccessModifier {
     Public,
     Private,
 }
