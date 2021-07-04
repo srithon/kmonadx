@@ -9,12 +9,13 @@ not_newline = {
 
 boundary = _{ WHITE_SPACE | PUNCTUATION | EOI }
 
-keys = _{ "keys" ~ &boundary }
 header_aliases = { "[aliases]" }
 
-layer_keyword = { access_modifier | keys }
+keyword_keys = _{ "keys" ~ &boundary }
 
-access_modifier = _{ ("private" | "public") ~ &boundary }
+keyword_layer = { keyword_access_modifier | keyword_keys }
+
+keyword_access_modifier = _{ ("private" | "public") ~ &boundary }
 
 // another builtin rule
 // we say that comments do not start with #( in order to disambiguate them from tap macros, which use the #( syntax
@@ -40,9 +41,9 @@ table_header = @{
 table_name = ${
   // only the very last path component can be a layer keyword
   // this is saying that either the ONLY component is the layer keyword or the last component after several (non-layer-keyword) identifiers is optionally a layer keyword
-  layer_keyword |
-    (identifier ~ ("." ~ !layer_keyword ~ identifier)* ~
-    ("." ~ layer_keyword)?)
+  keyword_layer |
+    (identifier ~ ("." ~ !keyword_layer ~ identifier)* ~
+    ("." ~ keyword_layer)?)
 }
 
 table_body = _{
