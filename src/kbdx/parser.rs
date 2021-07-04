@@ -12,6 +12,7 @@ pub type Pair<'a> = pest::iterators::Pair<'a, Rule>;
 
 use ahash::AHashMap;
 
+#[derive(Debug)]
 enum AccessModifier {
     Public,
     Private,
@@ -21,6 +22,7 @@ pub type Map<'a, T> = AHashMap<&'a str, T>;
 pub type PairMap<'a> = Map<'a, Pair<'a>>;
 pub type LayerMap<'a> = Map<'a, Layer<'a>>;
 
+#[derive(Debug)]
 pub struct Layer<'a> {
     parent_name: Option<&'a str>,
     aliases: Map<'a, (Pair<'a>, AccessModifier)>,
@@ -37,6 +39,7 @@ impl<'a> Layer<'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct Data<'a> {
     configuration: PairMap<'a>,
     global_aliases: PairMap<'a>,
