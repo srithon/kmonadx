@@ -1,7 +1,7 @@
 use pest::iterators::Pairs;
 
-use pest_derive::Parser;
 use pest::Parser as _;
+use pest_derive::Parser;
 
 #[derive(Parser)]
 #[grammar = "kbdx/kbdx.pest"]
@@ -85,7 +85,7 @@ impl Parser {
             Private,
             Public,
             Keys,
-            Aliases
+            Aliases,
         }
 
         let mut layer_context = None;
@@ -101,7 +101,8 @@ impl Parser {
                     let header_depth = header_text.chars().take_while(|&c| c == '[').count();
 
                     // we are going deeper in the current layer
-                    let deeper_in_layer = header_depth > layer_stack.len() && layer_stack.len() != 0;
+                    let deeper_in_layer =
+                        header_depth > layer_stack.len() && layer_stack.len() != 0;
 
                     if !deeper_in_layer {
                         // keep popping off the stack until we are in the correct depth
@@ -130,29 +131,28 @@ impl Parser {
                         assert!(layer_context.is_none());
 
                         match identifier.as_rule() {
-                            R::keyword_layer => {
-                                match identifier.as_str() {
-                                    "public" => {
-                                        layer_context.insert(LayerContext::Public);
-                                    },
-                                    "private" => {
-                                        layer_context.insert(LayerContext::Private);
-                                    },
-                                    "keys" => {
-                                        layer_context.insert(LayerContext::Keys);
-                                    },
-                                    _ => unreachable!()
+                            R::keyword_layer => match identifier.as_str() {
+                                "public" => {
+                                    layer_context.insert(LayerContext::Public);
                                 }
+                                "private" => {
+                                    layer_context.insert(LayerContext::Private);
+                                }
+                                "keys" => {
+                                    layer_context.insert(LayerContext::Keys);
+                                }
+                                _ => unreachable!(),
                             },
-                            R::identifier => {
-                                layer_stack.push(identifier.as_str())
-                            },
-                            _ => unreachable!()
+                            R::identifier => layer_stack.push(identifier.as_str()),
+                            _ => unreachable!(),
                         }
                     }
 
-                    eprintln!("Header: {}; Stack: {:#?}; Layer Context: {:#?}", header_text, layer_stack, layer_context)
-                },
+                    eprintln!(
+                        "Header: {}; Stack: {:#?}; Layer Context: {:#?}",
+                        header_text, layer_stack, layer_context
+                    )
+                }
                 R::header_aliases => {
                     layer_stack.clear();
                     layer_context.insert(LayerContext::Aliases);
