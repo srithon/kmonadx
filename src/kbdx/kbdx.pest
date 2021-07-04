@@ -10,6 +10,7 @@ not_newline = {
 boundary = _{ WHITE_SPACE | PUNCTUATION | EOI }
 
 keys = _{ "keys" ~ &boundary }
+header_aliases = { "[aliases]" }
 
 layer_keyword = { access_modifier | keys }
 
@@ -26,7 +27,7 @@ identifier = @{
 }
 
 table = _{
-  table_header ~
+  (header_aliases | table_header) ~
   table_body
 }
 
