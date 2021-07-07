@@ -9,6 +9,13 @@ pub struct CLI {
     /// If any of the input files fail to compile, the program will return with an exit code of "1"
     #[structopt(short, long)]
     pub check: bool,
+
+    /// Show the raw Pest parser output
+    ///
+    /// This is useful for debugging changes to the parser
+    #[structopt(short, long, conflicts_with="check")]
+    pub debug_output: bool,
+
     /// A list of kbdx files to process.
     ///
     /// Unless the stdout option is specified, the kbd will be written to the same filename except
