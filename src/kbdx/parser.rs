@@ -179,7 +179,31 @@ impl Parser {
                     layer_stack.clear();
                     layer_context.insert(LayerContext::Aliases);
                 }
-                _ => (),
+                R::table_property => {
+                    let inner_property = pair.into_inner().next().expect(
+                        "Table properties must contain an internal property to match against",
+                    );
+
+                    match inner_property.as_rule() {
+                        R::parent_assignment => {
+                            let parent_name = inner_property
+                                .into_inner()
+                                .next()
+                                .expect("Parent name must contain a layer_name")
+                                .as_str();
+
+                            (&mut current_layer)
+                                .as_mut()
+                                .expect("Current layer must exist")
+                                .parent_name = Some(parent_name)
+                        }
+                        _ => unreachable!(
+                            "Invalid property assignment: '{:#?}'",
+                            inner_property.as_rule()
+                        ),
+                    }
+                }
+                _ => ()
             }
         }
 
