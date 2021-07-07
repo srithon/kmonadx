@@ -29,7 +29,7 @@ pub struct Layer<'a> {
     keys: PairMap<'a>,
 }
 
-impl<'a> Layer<'a> {
+impl<'a> Default for Layer<'a> {
     fn default() -> Layer<'a> {
         Layer {
             parent_name: None,
