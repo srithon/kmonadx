@@ -3,6 +3,8 @@ use pest::iterators::Pairs;
 use pest::Parser as _;
 use pest_derive::Parser;
 
+use crate::util::StringStack;
+
 #[derive(Parser)]
 #[grammar = "kbdx/kbdx.pest"]
 pub struct Parser;
@@ -20,7 +22,9 @@ pub enum AccessModifier {
 
 pub type Map<'a, T> = AHashMap<&'a str, T>;
 pub type PairMap<'a> = Map<'a, Pair<'a>>;
-pub type LayerMap<'a> = Map<'a, Layer<'a>>;
+// This has to be String's and not &str's because they must describe the entire layer, including
+// the context which will not be present in the input most of the time
+pub type LayerMap<'a> = AHashMap<String, Layer<'a>>;
 
 #[derive(Debug)]
 pub struct Layer<'a> {
@@ -77,8 +81,8 @@ impl Parser {
         let mut aliases = PairMap::default();
         let mut layers = LayerMap::default();
 
-        let mut layer_stack: Vec<&'a str> = Vec::new();
-        let mut current_layer: Option<Layer<'a>> = None;
+        let mut layer_stack: StringStack = StringStack::new();
+        let mut current_layer: Option<&mut Layer<'a>> = None;
 
         #[derive(Debug)]
         enum LayerContext {
@@ -101,13 +105,16 @@ impl Parser {
                     let header_depth = header_text.chars().take_while(|&c| c == '[').count();
 
                     // we are going deeper in the current layer
-                    let deeper_in_layer =
-                        header_depth > layer_stack.len() && layer_stack.len() != 0;
+                    let deeper_in_layer = header_depth > layer_stack.num_segments()
+                        && layer_stack.num_segments() != 0;
 
                     if !deeper_in_layer {
+                        layer_context = None;
                         // keep popping off the stack until we are in the correct depth
-                        while header_depth <= layer_stack.len() {
-                            layer_stack.pop().expect("Layer stack should not be empty");
+                        while header_depth <= layer_stack.num_segments() {
+                            if !layer_stack.pop() {
+                                panic!("Layer stack should not be empty")
+                            }
                         }
                     }
                     // you can only add one layer of nesting at a time
@@ -115,7 +122,7 @@ impl Parser {
                     // because of the way we are handling layers vs layer contexts, this also
                     // handles the error where a user tries to nest [[[private]]] inside of
                     // [[public]]
-                    else if header_depth > layer_stack.len() + 1 {
+                    else if header_depth > layer_stack.num_segments() + 1 {
                         panic!("Header is nested too far!")
                     }
 
@@ -143,14 +150,29 @@ impl Parser {
                                 }
                                 _ => unreachable!(),
                             },
-                            R::identifier => layer_stack.push(identifier.as_str()),
+                            R::identifier => {
+                                if layer_stack.num_segments() == 0 {
+                                    layer_stack.push(identifier.as_str());
+                                } else {
+                                    layer_stack.push(&format!(".{}", identifier.as_str()))
+                                }
+
+                                current_layer = None;
+                                // create layer if it doesnt exist
+                                let layer_entry =
+                                    layers.entry(layer_stack.as_str().to_owned()).or_default();
+                                // save as current layer
+                                current_layer.insert(layer_entry);
+                            }
                             _ => unreachable!(),
                         }
                     }
 
                     eprintln!(
-                        "Header: {}; Stack: {:#?}; Layer Context: {:#?}",
-                        header_text, layer_stack, layer_context
+                        "Header: {}; Stack: {}; Layer Context: {:#?}",
+                        header_text,
+                        layer_stack.as_str(),
+                        layer_context
                     )
                 }
                 R::header_aliases => {
