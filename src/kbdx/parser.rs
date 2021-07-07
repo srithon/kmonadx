@@ -203,6 +203,41 @@ impl Parser {
                         ),
                     }
                 }
+                R::assignment => {
+                    let assignment =
+                        try_parse_assignment(pair).expect("Assignments must be parseable");
+
+                    use LayerContext as L;
+                    match layer_context
+                        .as_ref()
+                        .expect("Assignments must be within a context!")
+                    {
+                        L::Aliases => {
+                            aliases.insert(assignment.0, assignment.1);
+                        }
+                        L::Public => {
+                            (&mut current_layer)
+                                .as_mut()
+                                .expect("Current layer must exist")
+                                .aliases
+                                .insert(assignment.0, (assignment.1, AccessModifier::Public));
+                        }
+                        L::Private => {
+                            (&mut current_layer)
+                                .as_mut()
+                                .expect("Current layer must exist")
+                                .aliases
+                                .insert(assignment.0, (assignment.1, AccessModifier::Private));
+                        }
+                        L::Keys => {
+                            (&mut current_layer)
+                                .as_mut()
+                                .expect("Current layer must exist")
+                                .keys
+                                .insert(assignment.0, assignment.1);
+                        }
+                    }
+                }
                 _ => ()
             }
         }
