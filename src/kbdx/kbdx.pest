@@ -38,17 +38,29 @@ table_header = @{
   "[" ~ (table_header | table_name) ~ "]"
 }
 
+layer_name = _{
+  identifier ~ ("." ~ !keyword_layer ~ identifier)*
+}
+
 table_name = ${
   // only the very last path component can be a layer keyword
   // this is saying that either the ONLY component is the layer keyword or the last component after several (non-layer-keyword) identifiers is optionally a layer keyword
   keyword_layer |
-    (identifier ~ ("." ~ !keyword_layer ~ identifier)* ~
+    (layer_name ~
     ("." ~ keyword_layer)?)
 }
 
 table_body = _{
   // including the NEWLINE in the beginning of the rule to avoid handling the EOI case at the end
-  (NEWLINE+ ~ (assignment | table))*
+  (NEWLINE+ ~ (table_property ~ NEWLINE+)* ~ (assignment | table))*
+}
+
+table_property = {
+  parent_assignment
+}
+
+parent_assignment = {
+  "parent" ~ "=" ~ layer_name
 }
 
 // we need this rule to be atomic so that it does not look at the tap macro # mark and immediately consume till the end of the line as if it were a comment
