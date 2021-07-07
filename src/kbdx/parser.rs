@@ -238,7 +238,8 @@ impl Parser {
                         }
                     }
                 }
-                _ => ()
+                Rule::EOI => break,
+                _ => unreachable!("{:#?}", pair.as_rule()),
             }
         }
 
