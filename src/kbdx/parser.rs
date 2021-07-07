@@ -50,16 +50,6 @@ pub struct Data<'a> {
     layers: LayerMap<'a>,
 }
 
-impl<'a> Data<'a> {
-    fn default() -> Data<'a> {
-        Data {
-            configuration: AHashMap::default(),
-            global_aliases: AHashMap::default(),
-            layers: AHashMap::default(),
-        }
-    }
-}
-
 impl Parser {
     /// Parses the input text and returns the raw Pest output
     pub fn parse_string_raw<'a>(input: &str) -> Result<Pairs<Rule>, ParseError> {
