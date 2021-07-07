@@ -245,7 +245,8 @@ impl Parser {
 
         Ok(Data {
             configuration: config_map,
-            ..Data::default()
+            layers,
+            global_aliases: aliases,
         })
     }
 }
