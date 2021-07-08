@@ -16,7 +16,9 @@ fn main() -> Result<()> {
         .install()?;
 
     for file_name in cli.filenames {
-        let file_contents = std::fs::read_to_string(&file_name).unwrap();
+        let file_contents = std::fs::read_to_string(&file_name)
+            .wrap_err(format!("Unable to read file: {:?}", file_name))
+            .suggestion("Please specify a file that exists")?;
 
         if cli.debug_output {
             println!("{:#?}", Parser::parse_string_raw(&file_contents))
