@@ -63,8 +63,13 @@ table_property = {
   parent_assignment
 }
 
+layer_name_list = !{
+  // lists do NOT accept trailing commas
+  "{" ~ layer_name ~ ("," ~ layer_name)* ~ "}"
+}
+
 parent_assignment = {
-  "parent" ~ "=" ~ layer_name
+  "parent" ~ "=" ~ (layer_name | layer_name_list)
 }
 
 // we need this rule to be atomic so that it does not look at the tap macro # mark and immediately consume till the end of the line as if it were a comment
