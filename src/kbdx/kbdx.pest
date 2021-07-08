@@ -21,10 +21,14 @@ keyword_access_modifier = _{ ("private" | "public") ~ &boundary }
 // we say that comments do not start with #( in order to disambiguate them from tap macros, which use the #( syntax
 COMMENT = _{ "#" ~ not_newline* ~ NEWLINE}
 
+legal_character = _{
+  ASCII_ALPHANUMERIC | "_" | "-"
+}
+
 // REGULAR ATOMIC
 // we do not want whitespace between the characters
 identifier = @{
-  (ASCII_ALPHANUMERIC | "_" | "-")+ ~ &boundary
+  legal_character+ ~ &boundary
 }
 
 table = _{
