@@ -37,7 +37,7 @@ pub type LayerMap<'a, T> = AHashMap<String, Layer<'a, T>>;
 
 #[derive(Debug)]
 pub struct Layer<'a, T> {
-    parent_name: Option<&'a str>,
+    parent_name: Vec<&'a str>,
     aliases: Map<'a, (LazyButton<'a, T>, AccessModifier)>,
     keys: PairMap<'a, T>,
 }
@@ -45,7 +45,7 @@ pub struct Layer<'a, T> {
 impl<'a, T> Default for Layer<'a, T> {
     fn default() -> Layer<'a, T> {
         Layer {
-            parent_name: None,
+            parent_name: Vec::new(),
             aliases: AHashMap::default(),
             keys: AHashMap::default(),
         }
@@ -192,7 +192,8 @@ impl Parser {
                             (&mut current_layer)
                                 .as_mut()
                                 .expect("Current layer must exist")
-                                .parent_name = Some(parent_name)
+                                .parent_name
+                                .push(parent_name)
                         }
                         _ => unreachable!(
                             "Invalid property assignment: '{:#?}'",
