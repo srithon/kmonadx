@@ -1,8 +1,11 @@
-use structopt::StructOpt;
 use std::path::PathBuf;
+use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "kmonadx", about = "The KMonadX CLI for transpiling kbdx to kbd")]
+#[structopt(
+    name = "kmonadx",
+    about = "The KMonadX CLI for transpiling kbdx to kbd"
+)]
 pub struct CLI {
     /// Check for errors without displaying the compiled document
     ///
@@ -13,12 +16,12 @@ pub struct CLI {
     /// Show the raw Pest parser output
     ///
     /// This is useful for debugging changes to the parser
-    #[structopt(short, long, conflicts_with="check")]
+    #[structopt(short, long, conflicts_with = "check")]
     pub debug_output: bool,
 
     /// A list of kbdx files to process.
     ///
-    pub filenames: Vec<PathBuf>
     /// The compiled kbd will be written to the same filename except
     /// with the extension replaced with ".kbd"
+    pub filenames: Vec<PathBuf>,
 }
