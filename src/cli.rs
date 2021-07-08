@@ -18,7 +18,7 @@ pub struct CLI {
 
     /// A list of kbdx files to process.
     ///
-    /// Unless the stdout option is specified, the kbd will be written to the same filename except
-    /// with the extension replaced with ".kbdx"
     pub filenames: Vec<PathBuf>
+    /// The compiled kbd will be written to the same filename except
+    /// with the extension replaced with ".kbd"
 }
