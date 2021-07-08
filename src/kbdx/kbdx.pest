@@ -132,8 +132,17 @@ single_quoted_string = {
   "'" ~ (!("'") ~ ANY)* ~ "'"
 }
 
+// we need to have a separate reference_layer_name because layer_name is
+// a silent rule
+// it's a bit of an annoyance in the parsing code since it would
+// make a lot more sense just to match on `layer_name`, but this is currently
+// the only way to express the desired behavior in Pest
+reference_layer_name = ${
+  layer_name
+}
+
 reference = ${
-  (identifier ~ ("." ~ identifier)*) ~ (":" ~ identifier)
+  reference_layer_name ~ (":" ~ identifier)
 }
 
 number = @{
