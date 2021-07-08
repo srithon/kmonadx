@@ -43,9 +43,33 @@ parent = source
 # use the "<layer name>:<button name>" syntax to reference buttons defined under layers
 lmet = leader:enter
 
+# this is a layer that contains all of the keys for entering the persistent layers
+# it does not define an "enter" button because it is only intended for use with inheritance
+[enter-layers]
+# implicit "default" parent
+# parent = default
+[[keys]]
+r = run:enter
+s = scroll:enter
+v = volume:enter
+
 [leader]
-# we do not want keys to fallthrough to the next layer
-parent = block
+# "block" because we do not want keys to fallthrough to the next layer
+#
+# "enter-layers" is a custom layer defining the keys for entering other layers
+#
+# kmonadx allows for multiple inheritance with the { <layer name>, ... } syntax, allowing you to effectively compose layers from other layers
+# inheritance works sequentially, with layers later in the "parent" list overriding keys defined earlier
+#
+# NOTE that with inheritance, X's and _'s inherited from "block" or "fallthrough" do NOT get passed down
+# this would be very counter-intuitive, as every layer inherits X's and _'s for the keys that it does not define, effectively overriding every single previously defined key
+#
+# X's and _'s that are explicitly defined (and not just inherited) DO carry over, overriding keys from previous parents
+#
+# in this example, the "leader" layer inherits "block", starting with all X's
+# then, the keys defined in "enter-layers" override the X's from "block"
+# after that, any key defined in [leader.keys] will override THOSE
+parent = { block, enter-layers }
 # layers can choose which buttons they want to expose to the outside
 # buttons defined under [[public]] can be accessed using the aforementioned "<layer name>:<button name>" syntax
 [[public]]
@@ -57,8 +81,16 @@ enter = (tap-hold-next-release 250 (around-next (layer-toggle leader)) lmet)
 # you can reference aliases that appear later in the document
 q = window-switcher
 d = discord
-r = run:enter
 lmet = lmet
+# these keys are inherited from "enter-layers"
+# r = run:enter
+# s = scroll:enter
+# v = volume:enter
+# these keys are inherited from "block"
+# a = X
+# b = X
+# c = X
+# ...
 
 # you can put global aliases in the "aliases" table if you do not need a whole layer
 [aliases]
@@ -97,6 +129,10 @@ agenda = (cmd-button "kitty ~/.local/bin/taskwarrior-tui")
 org-capture = (cmd-button "~/.local/bin/org-capture")
 
 [scroll]
+# inherit the keys for entering other layers
+# note that this is equivalent to "parent = { default, enter-layers }"
+# all layers implicitly inherit from "default", even when something else is specified
+parent = enter-layers
 [[public]]
 enter = (layer-add scroll)
 [[private]]
@@ -122,6 +158,13 @@ lsft = speed-up
 
 tab = scroll.arrow-keys:enter
 
+# use leader key or the enter key to exit
+{ lmet, s } = exit
+
+# keys inherited from from enter-layers
+# r = run:enter
+# v = volume:enter
+
 # if kbdx does not recognize the subtable name, it is interpreted as a NESTED LAYER
 # nested layers can be referenced using "<parent layer>.<child layer>", and must be FULLY QUALIFIED regardless of the context
 # it is a warning to use a nested layer from outside of the "parent" (hierarchical) layer, but it is allowed
@@ -142,6 +185,7 @@ k = 'up'
 l = 'right'
 
 [volume]
+parent = enter-layers
 [[public]]
 enter = #((cmd-button "echo 1 > /tmp/volume_script_osd_file") (layer-add volume))
 [[private]]
