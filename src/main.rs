@@ -2,9 +2,7 @@ use color_eyre::{eyre::Result, eyre::WrapErr, Section};
 use kmonadx::cli::CLI;
 use structopt::StructOpt;
 
-use kmonadx::kbdx::{
-    compiler::compile_string, parser::Parser
-};
+use kmonadx::kbdx::{compiler::compile_string, parser::Parser};
 
 fn main() -> Result<()> {
     let cli = CLI::from_args();
@@ -22,8 +20,7 @@ fn main() -> Result<()> {
 
         if cli.debug_output {
             println!("{:#?}", Parser::parse_string_raw(&file_contents))
-        }
-        else {
+        } else {
             let compiled_string = compile_string(&file_contents)?;
 
             if !cli.check {
