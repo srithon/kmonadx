@@ -20,21 +20,30 @@ pub enum AccessModifier {
     Private,
 }
 
-pub type Map<'a, T> = AHashMap<&'a str, T>;
-pub type PairMap<'a> = Map<'a, Pair<'a>>;
-// This has to be String's and not &str's because they must describe the entire layer, including
-// the context which will not be present in the input most of the time
-pub type LayerMap<'a> = AHashMap<String, Layer<'a>>;
-
+/// LazyButton allows the Compiler to mutate the returned data in-place
+/// Rather than creating whole new maps for the processed data, instead we make each button
+/// into a LazyButton which can be converted into whichever type the compiler wants to use
 #[derive(Debug)]
-pub struct Layer<'a> {
-    parent_name: Option<&'a str>,
-    aliases: Map<'a, (Pair<'a>, AccessModifier)>,
-    keys: PairMap<'a>,
+pub enum LazyButton<'a, T> {
+    Unprocessed(Pair<'a>),
+    Processed(T),
 }
 
-impl<'a> Default for Layer<'a> {
-    fn default() -> Layer<'a> {
+pub type Map<'a, T> = AHashMap<&'a str, T>;
+pub type PairMap<'a, T> = Map<'a, LazyButton<'a, T>>;
+// This has to be String's and not &str's because they must describe the entire layer, including
+// the context which will not be present in the input most of the time
+pub type LayerMap<'a, T> = AHashMap<String, Layer<'a, T>>;
+
+#[derive(Debug)]
+pub struct Layer<'a, T> {
+    parent_name: Option<&'a str>,
+    aliases: Map<'a, (LazyButton<'a, T>, AccessModifier)>,
+    keys: PairMap<'a, T>,
+}
+
+impl<'a, T> Default for Layer<'a, T> {
+    fn default() -> Layer<'a, T> {
         Layer {
             parent_name: None,
             aliases: AHashMap::default(),
@@ -44,10 +53,10 @@ impl<'a> Default for Layer<'a> {
 }
 
 #[derive(Debug)]
-pub struct Data<'a> {
-    configuration: PairMap<'a>,
-    global_aliases: PairMap<'a>,
-    layers: LayerMap<'a>,
+pub struct Data<'a, T> {
+    configuration: PairMap<'a, T>,
+    global_aliases: PairMap<'a, T>,
+    layers: LayerMap<'a, T>,
 }
 
 impl Parser {
@@ -57,7 +66,7 @@ impl Parser {
     }
 
     /// Parses the input text and returns it in a more structured format
-    pub fn parse_string<'a>(input: &'a str) -> Result<Data<'a>, ParseError> {
+    pub fn parse_string<'a, T>(input: &'a str) -> Result<Data<'a, T>, ParseError> {
         let pairs = Self::parse(Rule::main, input.as_ref())?;
 
         let mut pairs_iter = pairs.into_iter();
@@ -66,13 +75,11 @@ impl Parser {
         let configuration_pair = pairs_iter.next().unwrap();
         let config_map = create_pair_map(configuration_pair);
 
-        eprintln!("Config: {:#?}", config_map);
-
         let mut aliases = PairMap::default();
         let mut layers = LayerMap::default();
 
         let mut layer_stack: StringStack = StringStack::new();
-        let mut current_layer: Option<&mut Layer<'a>> = None;
+        let mut current_layer: Option<&mut Layer<'a, T>> = None;
 
         #[derive(Debug)]
         enum LayerContext {
@@ -243,7 +250,9 @@ impl Parser {
 
 /// Given an `assignment` Pair, parses the assignment into a tuple where the first item is the
 /// lvalue identifier and the second item is the rvalue Pair
-fn try_parse_assignment<'a>(maybe_assignment: Pair<'a>) -> Option<(&'a str, Pair<'a>)> {
+fn try_parse_assignment<'a, T>(
+    maybe_assignment: Pair<'a>,
+) -> Option<(&'a str, LazyButton<'a, T>)> {
     let input_rule = maybe_assignment.as_rule();
 
     if input_rule != Rule::assignment {
@@ -260,12 +269,12 @@ fn try_parse_assignment<'a>(maybe_assignment: Pair<'a>) -> Option<(&'a str, Pair
 
     let rvalue = pairs.next().expect("The pair must have an rvalue!");
 
-    Some((identifier_name, rvalue))
+    Some((identifier_name, LazyButton::Unprocessed(rvalue)))
 }
 
 /// Given a Pair that contains `assignment`'s, return a PairMap with the format
 /// { "<lvalue>": "<rvalue>" }
-fn create_pair_map<'a>(input: Pair<'a>) -> PairMap<'a> {
+fn create_pair_map<'a, T>(input: Pair<'a>) -> PairMap<'a, T> {
     input
         .into_inner()
         .map(try_parse_assignment)
