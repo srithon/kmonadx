@@ -58,11 +58,11 @@ v = volume:enter
 #
 # "enter-layers" is a custom layer defining the keys for entering other layers
 #
-# kmonadx allows for multiple inheritance with the { <layer name>, ... } syntax, allowing you to effectively compose layers from other layers
+# kmonadx allows for multiple inheritance with the "parent = { <layer name>, ... }" syntax, allowing you to effectively compose layers from other layers
 # inheritance works sequentially, with layers later in the "parent" list overriding keys defined earlier
 #
-# NOTE that with inheritance, X's and _'s inherited from "block" or "fallthrough" do NOT get passed down
-# this would be very counter-intuitive, as every layer inherits X's and _'s for the keys that it does not define, effectively overriding every single previously defined key
+# NOTE that with multi inheritance, X's and _'s inherited from "block" or "fallthrough" do NOT override previous keys
+# this would be very counter-intuitive, as it would mean that every layer would override every key
 #
 # X's and _'s that are explicitly defined (and not just inherited) DO carry over, overriding keys from previous parents
 #
@@ -75,7 +75,7 @@ parent = { block, enter-layers }
 [[public]]
 # SYNTAX
 # <button name> = <lisp expression>
-# the syntax for defining buttons is unchanged from kbd
+# the syntax for creating buttons is unchanged from kbd
 enter = (tap-hold-next-release 250 (around-next (layer-toggle leader)) lmet)
 [[keys]]
 # you can reference aliases that appear later in the document
@@ -109,7 +109,7 @@ runner = (cmd-button "~/.config/kmonad/runner/runner.sh")
 #
 # tap macro syntactic sugar works just like in kbd
 # also, to use named buttons in other named button definitions, you need to use the @ symbol so kbdx knows to replace it
-# using @ is not necessary in [[keys]]
+# as you have seen, using @ is not necessary with plain rvalues in [[keys]]
 enter = #(@runner (layer-add run))
 # buttons defined under [[private]] CANNOT be accessed using the "<layer name>:<button name>" syntax
 # you can use [[private]] for layer-internal buttons
@@ -118,8 +118,9 @@ exit = #((layer-rem run) (cmd-button "killall st"))
 [[keys]]
 # right-hand-side value resolution
 # 1. see if it is a direct lisp button expression
-# 2. if not a button, look under [[private]] and [[public]]
-# 3. look under aliases
+# 2. see if it is a button reference or an alias
+# 3. look under [[private]] and [[public]]
+# 4. look under aliases
 lmet = exit
 
 [aliases]
@@ -168,7 +169,7 @@ tab = scroll.arrow-keys:enter
 # if kbdx does not recognize the subtable name, it is interpreted as a NESTED LAYER
 # nested layers can be referenced using "<parent layer>.<child layer>", and must be FULLY QUALIFIED regardless of the context
 # it is a warning to use a nested layer from outside of the "parent" (hierarchical) layer, but it is allowed
-# this means that even if you are in the context of the scroll layer, you need to reference the arrow-keys layer as scroll:arrow-keys
+# this means that even if you are in the context of the scroll layer, you need to reference the arrow-keys layer as scroll.arrow-keys
 # like in standard TOML, this could also be defined as [[arrow-keys]]
 # however, it can be nicer to define it at the base level to avoid an extra set of square brackets
 [scroll.arrow-keys]
