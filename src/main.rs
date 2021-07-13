@@ -1,14 +1,10 @@
-use color_eyre::{
-    eyre::eyre,
-    eyre::Result,
-    eyre::WrapErr,
-    Section,
-};
+use color_eyre::{eyre::eyre, eyre::Result, eyre::WrapErr, Section};
 
 use kmonadx::cli::CLI;
 use structopt::StructOpt;
 
 use kmonadx::kbdx::{compiler::compile_string, parser::Parser};
+
 use kmonadx::kbdx::diagnostic::DiagnosticAggregator;
 
 use std::cell::UnsafeCell;
@@ -60,9 +56,7 @@ fn main() -> Result<()> {
                         println!("{}", compiled_string);
                     }
                 }
-                Err(_) => {
-                    break
-                }
+                Err(_) => break,
             }
         }
     }
