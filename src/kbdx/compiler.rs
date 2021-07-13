@@ -1,6 +1,6 @@
-use super::parser::{ Parser, ParseError };
+use super::parser::Parser;
 
-pub fn compile_string(input: &str) -> Result<String, ParseError> {
-    let pairs = Parser::parse_string::<()>(input)?;
-    Ok(format!("{:#?}", pairs))
+pub fn compile_string(mut parser: Parser) -> color_eyre::Result<String> {
+    let data = parser.parse_string::<()>()?;
+    Ok(format!("{:#?}", data))
 }

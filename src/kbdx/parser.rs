@@ -5,9 +5,12 @@ use pest_derive::Parser;
 
 use crate::util::StringStack;
 
+use super::diagnostic::*;
+
 #[derive(Parser)]
 #[grammar = "kbdx/kbdx.pest"]
-pub struct Parser;
+/// Struct implementing the Pest parser
+struct InternalParser;
 
 pub type ParseError = pest::error::Error<Rule>;
 pub type Pair<'a> = pest::iterators::Pair<'a, Rule>;
@@ -59,15 +62,56 @@ pub struct Data<'a, T> {
     layers: LayerMap<'a, T>,
 }
 
-impl Parser {
+pub struct Parser<'a, 'b> {
+    input_string: &'a str,
+    file_diagnostics: FileDiagnostics<'a, 'b>
+}
+
+impl<'a, 'b> Parser<'a, 'b> {
+    pub fn new(input_string: &'a str, file_diagnostics: FileDiagnostics<'a, 'b>) -> Parser<'a, 'b> {
+        Parser {
+            input_string,
+            file_diagnostics
+        }
+    }
+
+    fn add_parser_error(&mut self, parser_error: ParseError) {
+        use pest::error::*;
+
+        let span = match parser_error.location {
+            InputLocation::Pos(byte_offset) => byte_offset..byte_offset + 1,
+            InputLocation::Span((byte_start, byte_end)) => byte_start..byte_end
+        };
+
+        let headline = "parsing error!".to_owned();
+
+        let error = self.file_diagnostics.error(headline);
+
+        match parser_error.variant {
+            ErrorVariant::ParsingError { positives, negatives } => {
+                error.add_message(Message::from_byte_range(span.clone(), format!("Positive Attempts: {:?}", positives)));
+                error.add_message(Message::from_byte_range(span, format!("Negative Attempts: {:?}", negatives)));
+            }
+            ErrorVariant::CustomError { message } => {
+                error.add_message(Message::from_byte_range(span, message));
+            }
+        };
+    }
+
     /// Parses the input text and returns the raw Pest output
-    pub fn parse_string_raw<'a>(input: &str) -> Result<Pairs<Rule>, ParseError> {
-        Self::parse(Rule::main, input.as_ref())
+    pub fn parse_string_raw(&mut self) -> color_eyre::Result<Pairs<'a, Rule>> {
+        match InternalParser::parse(Rule::main, self.input_string.as_ref()) {
+            Ok(pairs) => Ok(pairs),
+            Err(parse_error) => {
+                self.add_parser_error(parse_error);
+                return Err(color_eyre::eyre::eyre!("Parsing error."))
+            }
+        }
     }
 
     /// Parses the input text and returns it in a more structured format
-    pub fn parse_string<'a, T>(input: &'a str) -> Result<Data<'a, T>, ParseError> {
-        let pairs = Self::parse(Rule::main, input.as_ref())?;
+    pub fn parse_string<T>(&mut self) -> color_eyre::Result<Data<'a, T>> {
+        let pairs = self.parse_string_raw()?;
 
         let mut pairs_iter = pairs.into_iter();
 
