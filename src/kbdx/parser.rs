@@ -33,7 +33,8 @@ pub enum LazyButton<'a, T> {
 }
 
 pub type Map<'a, T> = AHashMap<&'a str, T>;
-pub type PairMap<'a, T> = Map<'a, LazyButton<'a, T>>;
+pub type LazyButtonMap<'a, T> = Map<'a, LazyButton<'a, T>>;
+pub type PairMap<'a> = Map<'a, Pair<'a>>;
 // This has to be String's and not &str's because they must describe the entire layer, including
 // the context which will not be present in the input most of the time
 pub type LayerMap<'a, T> = AHashMap<String, Layer<'a, T>>;
@@ -42,7 +43,7 @@ pub type LayerMap<'a, T> = AHashMap<String, Layer<'a, T>>;
 pub struct Layer<'a, T> {
     parent_name: Vec<&'a str>,
     aliases: Map<'a, (LazyButton<'a, T>, AccessModifier)>,
-    keys: PairMap<'a, T>,
+    keys: LazyButtonMap<'a, T>,
 }
 
 impl<'a, T> Default for Layer<'a, T> {
@@ -57,8 +58,8 @@ impl<'a, T> Default for Layer<'a, T> {
 
 #[derive(Debug)]
 pub struct Data<'a, T> {
-    configuration: PairMap<'a, T>,
-    global_aliases: PairMap<'a, T>,
+    configuration: LazyButtonMap<'a, T>,
+    global_aliases: LazyButtonMap<'a, T>,
     layers: LayerMap<'a, T>,
 }
 
@@ -119,7 +120,7 @@ impl<'a, 'b> Parser<'a, 'b> {
         let configuration_pair = pairs_iter.next().unwrap();
         let config_map = create_pair_map(configuration_pair);
 
-        let mut aliases = PairMap::default();
+        let mut aliases = LazyButtonMap::default();
         let mut layers = LayerMap::default();
 
         let mut layer_stack: StringStack = StringStack::new();
