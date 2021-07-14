@@ -78,7 +78,7 @@ assignment = ${
   WHITESPACE? ~
   "=" ~
   WHITESPACE? ~
-  (button | string | reference | number | identifier)
+  (button | string | reference | number | boolean | identifier)
 }
 
 identifier_list = !{
@@ -156,6 +156,18 @@ reference = ${
 
 number = @{
   ("-" | "+")? ~ ASCII_DIGIT+ ~ &boundary
+}
+
+boolean = ${
+  keyword_true | keyword_false
+}
+
+keyword_true = @{
+  "true" ~ &boundary
+}
+
+keyword_false = @{
+  "false" ~ &boundary
 }
 
 // there are no nested tables inside of "configuration"
