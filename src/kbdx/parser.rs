@@ -58,9 +58,9 @@ impl<'a, T> Default for Layer<'a, T> {
 
 #[derive(Debug)]
 pub struct Data<'a, T> {
-    configuration: PairMap<'a>,
-    global_aliases: LazyButtonMap<'a, T>,
-    layers: LayerMap<'a, T>,
+    pub configuration: PairMap<'a>,
+    pub global_aliases: LazyButtonMap<'a, T>,
+    pub layers: LayerMap<'a, T>,
 }
 
 pub struct Parser<'a, 'b> {
