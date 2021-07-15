@@ -1,6 +1,19 @@
 use super::diagnostic::FileDiagnostics;
 use super::parser::{Data, LazyButton, Pair, Parser, Rule};
 
+/// Struct containing typed [configuration] values
+#[derive(Debug)]
+struct Configuration<'a> {
+    input: &'a str,
+    output_name: &'a str,
+    output_pre_command: &'a str,
+    cmp_seq: &'a str,
+    cmp_seq_delay: usize,
+    fallthrough: bool,
+    allow_cmd: bool,
+    starting_layer: &'a str,
+}
+
 pub struct Compiler<'a, 'b> {
     parser_data: Data<'a, ()>,
     file_diagnostics: FileDiagnostics<'a, 'b>,
