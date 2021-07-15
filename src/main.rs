@@ -3,7 +3,7 @@ use color_eyre::{eyre::eyre, eyre::Result, eyre::WrapErr, Section};
 use kmonadx::cli::CLI;
 use structopt::StructOpt;
 
-use kmonadx::kbdx::{compiler::compile_string, parser::Parser};
+use kmonadx::kbdx::{compiler::Compiler, parser::Parser};
 
 use kmonadx::kbdx::diagnostic::DiagnosticAggregator;
 
@@ -50,10 +50,15 @@ fn main() -> Result<()> {
         if cli.debug_output {
             println!("{:#?}", parser.parse_string_raw())
         } else {
-            match compile_string(parser) {
-                Ok(compiled_string) => {
-                    if !cli.check {
-                        println!("{}", compiled_string);
+            match Compiler::new(parser) {
+                Ok(compiler) => {
+                    match compiler.compile_string() {
+                        Ok(string) => {
+                            if !cli.check {
+                                println!("{}", string);
+                            }
+                        },
+                        Err(_) => break
                     }
                 }
                 Err(_) => break,

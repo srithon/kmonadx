@@ -1,4 +1,10 @@
-use super::parser::{LazyButton, Pair, Parser, Rule};
+use super::diagnostic::FileDiagnostics;
+use super::parser::{Data, LazyButton, Pair, Parser, Rule};
+
+pub struct Compiler<'a, 'b> {
+    parser_data: Data<'a, ()>,
+    file_diagnostics: FileDiagnostics<'a, 'b>,
+}
 
 mod parse {
     use super::*;
@@ -40,7 +46,15 @@ mod parse {
     });
 }
 
-pub fn compile_string(mut parser: Parser) -> color_eyre::Result<String> {
-    let data = parser.parse_string::<()>()?;
-    Ok(format!("{:#?}", data))
+impl<'a, 'b> Compiler<'a, 'b> {
+    pub fn new(mut parser: Parser<'a, 'b>) -> color_eyre::Result<Compiler<'a, 'b>> {
+        Ok(Compiler {
+            parser_data: parser.parse_string::<>()?,
+            file_diagnostics: parser.file_diagnostics,
+        })
+    }
+
+    pub fn compile_string(mut self) -> color_eyre::Result<String> {
+        Ok(format!("{:#?}", self.parser_data))
+    }
 }
