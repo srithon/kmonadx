@@ -64,8 +64,8 @@ pub struct Data<'a, T> {
 }
 
 pub struct Parser<'a, 'b> {
-    input_string: &'a str,
-    file_diagnostics: FileDiagnostics<'a, 'b>
+    pub(in crate::kbdx) input_string: &'a str,
+    pub(in crate::kbdx) file_diagnostics: FileDiagnostics<'a, 'b>
 }
 
 impl<'a, 'b> Parser<'a, 'b> {
