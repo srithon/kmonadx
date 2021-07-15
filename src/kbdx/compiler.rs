@@ -1,4 +1,6 @@
-use super::diagnostic::FileDiagnostics;
+use color_eyre::eyre::eyre;
+
+use super::diagnostic::{FileDiagnostics, Message};
 use super::parser::{Data, LazyButton, Pair, Parser, Rule};
 
 /// Represents a button that has been converted into its kbd Lisp form
@@ -75,7 +77,75 @@ impl<'a, 'b> Compiler<'a, 'b> {
         })
     }
 
+    fn try_parse_configuration(&mut self) -> color_eyre::Result<Configuration<'a>> {
+        let Compiler {
+            ref parser_data,
+            ref mut file_diagnostics,
+        } = self;
+
+        let mut configuration_is_valid = true;
+
+        macro_rules! try_parse {
+            ($field_name:expr, $parse_function:expr) => {{
+                match parser_data.configuration.get($field_name) {
+                    None => {
+                        file_diagnostics
+                            .error(format!("{} field missing in configuration!", $field_name))
+                            .add_note("See the tutorial for a valid example configuration");
+
+                        configuration_is_valid = false;
+
+                        None
+                    }
+                    Some(x) => match $parse_function(x) {
+                        Err(e) => {
+                            file_diagnostics
+                                .error("mismatched types")
+                                .add_message(Message::from_pest_span(&x.as_span(), e));
+
+                            configuration_is_valid = false;
+
+                            None
+                        }
+                        Ok(x) => Some(x),
+                    },
+                }
+            }};
+        }
+
+        // we make these Option's rather than simply early-returning within a closure so that we
+        // can report multiple configuration errors at oncee
+        let input = try_parse!("input", parse::double_quoted_string);
+        let output_name = try_parse!("output-name", parse::double_quoted_string);
+        let output_pre_command = try_parse!("output-pre-command", parse::double_quoted_string);
+        let cmp_seq = try_parse!("cmp-seq", parse::single_quoted_string);
+        let cmp_seq_delay = try_parse!("cmp-seq-delay", parse::number);
+        let fallthrough = try_parse!("fallthrough", parse::boolean);
+        let allow_cmd = try_parse!("allow-cmd", parse::boolean);
+        let starting_layer = try_parse!("starting-layer", parse::identifier);
+
+        if configuration_is_valid {
+            Ok(Configuration {
+                input: input.unwrap(),
+                output_name: output_name.unwrap(),
+                output_pre_command: output_pre_command.unwrap(),
+                cmp_seq: cmp_seq.unwrap(),
+                cmp_seq_delay: cmp_seq_delay.unwrap(),
+                fallthrough: fallthrough.unwrap(),
+                allow_cmd: allow_cmd.unwrap(),
+                starting_layer: starting_layer.unwrap(),
+            })
+        } else {
+            Err(eyre!("Invalid configuration!"))
+        }
+    }
+
     pub fn compile_string(mut self) -> color_eyre::Result<String> {
+        // read configuration into Configuration struct
+        let configuration = self.try_parse_configuration()?;
+
+        println!("Configuration: {:#?}", configuration);
+
         Ok(format!("{:#?}", self.parser_data))
     }
 }
