@@ -21,7 +21,7 @@ struct Configuration<'a> {
 }
 
 pub struct Compiler<'a, 'b> {
-    parser_data: Data<'a, ()>,
+    parser_data: Data<'a, ProcessedButton>,
     file_diagnostics: FileDiagnostics<'a, 'b>,
 }
 
@@ -70,7 +70,7 @@ mod parse {
 impl<'a, 'b> Compiler<'a, 'b> {
     pub fn new(mut parser: Parser<'a, 'b>) -> color_eyre::Result<Compiler<'a, 'b>> {
         Ok(Compiler {
-            parser_data: parser.parse_string::<>()?,
+            parser_data: parser.parse_string::<_>()?,
             file_diagnostics: parser.file_diagnostics,
         })
     }
