@@ -1,6 +1,12 @@
 use super::diagnostic::FileDiagnostics;
 use super::parser::{Data, LazyButton, Pair, Parser, Rule};
 
+/// Represents a button that has been converted into its kbd Lisp form
+#[derive(Debug)]
+struct ProcessedButton {
+    string: String,
+}
+
 /// Struct containing typed [configuration] values
 #[derive(Debug)]
 struct Configuration<'a> {
