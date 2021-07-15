@@ -57,6 +57,8 @@ mod parse {
         Rule::keyword_false => false,
         x => unreachable!("Invalid inner boolean type: {:?}", x),
     });
+
+    create_type_parser!(identifier, &'a str, as_str);
 }
 
 impl<'a, 'b> Compiler<'a, 'b> {
