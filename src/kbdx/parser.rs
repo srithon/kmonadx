@@ -248,7 +248,7 @@ impl<'a, 'b> Parser<'a, 'b> {
                 }
                 R::assignment => {
                     let assignment =
-                        try_parse_assignment(pair).expect("Assignments must be parseable");
+                        try_parse_assignment_lazy_button_rvalue(pair).expect("Assignments must be parseable");
 
                     use LayerContext as L;
                     match layer_context
@@ -295,10 +295,12 @@ impl<'a, 'b> Parser<'a, 'b> {
 }
 
 /// Given an `assignment` Pair, parses the assignment into a tuple where the first item is the
-/// lvalue identifier and the second item is the rvalue Pair
-fn try_parse_assignment<'a, T>(
+/// lvalue identifier and the second item is the result of the rvalue Pair passed into
+/// `t_constructor`
+fn try_parse_assignment_generic<'a, T>(
     maybe_assignment: Pair<'a>,
-) -> Option<(&'a str, LazyButton<'a, T>)> {
+    t_constructor: impl Fn(Pair<'a>) -> T
+) -> Option<(&'a str, T)> {
     let input_rule = maybe_assignment.as_rule();
 
     if input_rule != Rule::assignment {
@@ -315,15 +317,28 @@ fn try_parse_assignment<'a, T>(
 
     let rvalue = pairs.next().expect("The pair must have an rvalue!");
 
-    Some((identifier_name, LazyButton::Unprocessed(rvalue)))
+    Some((identifier_name, t_constructor(rvalue)))
+}
+
+/// Given an `assignment` Pair, parses the assignment into a tuple where the first item is the
+/// lvalue identifier and the second item is a LazyButton<T>::Unprocessed containing the rvalue
+/// Pair
+fn try_parse_assignment_lazy_button_rvalue<'a, T>(maybe_assignment: Pair<'a>) -> Option<(&'a str, LazyButton<T>)> {
+    try_parse_assignment_generic(maybe_assignment, LazyButton::Unprocessed)
+}
+
+/// Given an `assignment` Pair, parses the assignment into a tuple where the first item is the
+/// lvalue identifier and the second item is the rvalue Pair
+fn try_parse_assignment_pair_rvalue<'a>(maybe_assignment: Pair<'a>) -> Option<(&'a str, Pair<'a>)> {
+    try_parse_assignment_generic(maybe_assignment, |x| x)
 }
 
 /// Given a Pair that contains `assignment`'s, return a PairMap with the format
 /// { "<lvalue>": "<rvalue>" }
-fn create_pair_map<'a, T>(input: Pair<'a>) -> PairMap<'a, T> {
+fn create_pair_map<'a>(input: Pair<'a>) -> PairMap<'a> {
     input
         .into_inner()
-        .map(try_parse_assignment)
+        .map(try_parse_assignment_pair_rvalue)
         // effectively take while they are assignments
         .take_while(Option::is_some)
         // remove the Option layer
