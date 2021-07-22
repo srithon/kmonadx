@@ -132,6 +132,8 @@ impl<'a> DiagnosticAggregator<'a> {
 pub struct FileDiagnostics<'a, 'b> {
     file_id: usize,
     diagnostic_aggregator: &'a mut DiagnosticAggregator<'b>,
+    warning_count: usize,
+    error_count: usize
 }
 
 impl<'a, 'b> FileDiagnostics<'a, 'b> {
@@ -144,11 +146,13 @@ impl<'a, 'b> FileDiagnostics<'a, 'b> {
         FileDiagnostics {
             file_id,
             diagnostic_aggregator,
+            warning_count: 0,
+            error_count: 0
         }
     }
 
     /// Creates an empty [Diagnostic] with a given headline/main message
-    fn with_headline(&mut self, headline: impl Into<String>) -> Diagnostic {
+    fn with_headline(&self, headline: impl Into<String>) -> Diagnostic {
         Diagnostic {
             file_id: self.file_id,
             headline: headline.into(),
@@ -162,6 +166,7 @@ impl<'a, 'b> FileDiagnostics<'a, 'b> {
     pub fn error<'ret>(&'ret mut self, headline: impl Into<String>) -> &'ret mut Diagnostic {
         let diagnostic = self.with_headline(headline.into());
         self.diagnostic_aggregator.errors.push(diagnostic);
+        self.error_count += 1;
         self.diagnostic_aggregator.errors.last_mut().unwrap()
     }
 
@@ -170,7 +175,16 @@ impl<'a, 'b> FileDiagnostics<'a, 'b> {
     pub fn warning<'ret>(&'ret mut self, headline: impl Into<String>) -> &'ret mut Diagnostic {
         let diagnostic = self.with_headline(headline.into());
         self.diagnostic_aggregator.warnings.push(diagnostic);
+        self.warning_count += 1;
         self.diagnostic_aggregator.warnings.last_mut().unwrap()
+    }
+
+    pub fn error_count(&self) -> usize {
+        self.error_count
+    }
+
+    pub fn warning_count(&self) -> usize {
+        self.warning_count
     }
 }
 
