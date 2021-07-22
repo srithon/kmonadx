@@ -5,6 +5,8 @@ use pest_derive::Parser;
 
 use crate::util::StringStack;
 
+use std::cell::RefCell;
+
 use super::diagnostic::*;
 
 #[derive(Parser)]
@@ -27,9 +29,58 @@ pub enum AccessModifier {
 /// Rather than creating whole new maps for the processed data, instead we make each button
 /// into a LazyButton which can be converted into whichever type the compiler wants to use
 #[derive(Debug)]
-pub enum LazyButton<'a, T> {
+pub struct LazyButton<'a, T>(RefCell<LazyButtonInternal<'a, T>>);
+
+#[derive(Debug)]
+enum LazyButtonInternal<'a, T> {
     Unprocessed(Pair<'a>),
     Processed(T),
+}
+
+impl<'a, T> LazyButton<'a, T> {
+    /// Creates a new `LazyButton` from a `Pair`
+    pub fn new(pair: Pair<'a>) -> LazyButton<'a, T> {
+        LazyButton(RefCell::new(LazyButtonInternal::Unprocessed(pair)))
+    }
+
+    /// Returns `true` if the LazyButton is Unprocessed, otherwise `false`
+    pub fn is_unprocessed(&self) -> bool {
+        matches!(*self.0.borrow(), LazyButtonInternal::Unprocessed(_))
+    }
+
+    /// Modifies the LazyButton in-place using `f`.
+    ///
+    /// If the LazyButton is already Processed, returns Err.
+    /// Otherwise, returns Ok
+    pub fn process(
+        &self,
+        f: impl FnOnce(Pair<'a>) -> T,
+    ) -> color_eyre::Result<()> {
+        let mut internal = self.0.borrow_mut();
+
+        *internal = match *internal {
+            LazyButtonInternal::Unprocessed(ref pair) => {
+                // create a bitwise copy of `pair` without moving the value
+                // we need to do this because self.process_button_pair may return an Err, in which
+                // case we would not have a valid value to write to *button, and the `pair` within
+                // the LazyButton would be invalid memory
+                let pair = unsafe { std::ptr::read(pair) };
+
+                LazyButtonInternal::Processed(f(pair))
+            },
+            _ => return Err(color_eyre::eyre::eyre!("Trying to process processed item!"))
+        };
+
+        Ok(())
+    }
+
+    /// Attempts to extract a T out of a LazyButton::Processed, panicking if it is Unprocessed.
+    pub fn unwrap_processed(self) -> T {
+        match self.0.into_inner() {
+            LazyButtonInternal::Processed(t) => t,
+            _ => panic!("Tried to unwrap unprocessed LazyButton as processed"),
+        }
+    }
 }
 
 pub type Map<'a, T> = AHashMap<&'a str, T>;
@@ -324,7 +375,7 @@ fn try_parse_assignment_generic<'a, T>(
 /// lvalue identifier and the second item is a LazyButton<T>::Unprocessed containing the rvalue
 /// Pair
 fn try_parse_assignment_lazy_button_rvalue<'a, T>(maybe_assignment: Pair<'a>) -> Option<(&'a str, LazyButton<T>)> {
-    try_parse_assignment_generic(maybe_assignment, LazyButton::Unprocessed)
+    try_parse_assignment_generic(maybe_assignment, LazyButton::new)
 }
 
 /// Given an `assignment` Pair, parses the assignment into a tuple where the first item is the
