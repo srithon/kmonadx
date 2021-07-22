@@ -90,6 +90,13 @@ button = {
   tap_macro | button_alias | normal_button
 }
 
+// the silent variant of "button"
+// when we are processing our buttons, we do not want to deal with "button"
+// wrappers around every button
+internal_button = _{
+  tap_macro | button_alias | normal_button
+}
+
 // a bunch of non-parentheses and non-& characters
 // we do this so that we don't consume things related to the other rules
 //
@@ -111,8 +118,8 @@ normal_button = {
      // button "inner text" that does not match any other rule
      normal_button_non_keyword ~
      (variable_reference)? ~
-     // followed by an optional button
-     (button)?
+     // followed by an optional internal button
+     (internal_button)?
     // repeated many times
     )* ~
   // enclosed within parentheses
