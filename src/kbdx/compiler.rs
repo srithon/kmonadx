@@ -1,6 +1,9 @@
 use color_eyre::eyre::eyre;
 
-use super::diagnostic::{FileDiagnostics, Message};
+use std::borrow::Cow;
+use std::cell::UnsafeCell;
+
+use super::diagnostic::{Diagnostic, FileDiagnostics};
 use super::parser::{Data, LazyButton, Pair, Parser, Rule};
 
 /// Represents a button that has been converted into its kbd Lisp form
@@ -23,8 +26,8 @@ struct Configuration<'a> {
 }
 
 pub struct Compiler<'a, 'b> {
-    parser_data: Data<'a, ProcessedButton>,
-    file_diagnostics: FileDiagnostics<'a, 'b>,
+    parser_data: Data<'a, ProcessedButton<'a>>,
+    file_diagnostics: UnsafeCell<FileDiagnostics<'a, 'b>>,
 }
 
 mod parse {
@@ -73,14 +76,28 @@ impl<'a, 'b> Compiler<'a, 'b> {
     pub fn new(mut parser: Parser<'a, 'b>) -> color_eyre::Result<Compiler<'a, 'b>> {
         Ok(Compiler {
             parser_data: parser.parse_string::<_>()?,
-            file_diagnostics: parser.file_diagnostics,
+            file_diagnostics: UnsafeCell::new(parser.file_diagnostics),
         })
+    }
+
+    /// Creates an error diagnostic in the current file and returns a handle to it
+    fn error(&self, headline: impl Into<String>) -> &mut Diagnostic {
+        unsafe { (*self.file_diagnostics.get()).error(headline) }
+    }
+
+    /// Returns true if there are errors in the current file, false otherwise
+    fn has_errors(&self) -> bool {
+        unsafe { (*self.file_diagnostics.get()).error_count() != 0 }
+    }
+
+    /// Creates a warning diagnostic in the current file and returns a handle to it
+    fn warning(&self, headline: impl Into<String>) -> &mut Diagnostic {
+        unsafe { (*self.file_diagnostics.get()).warning(headline) }
     }
 
     fn try_parse_configuration(&mut self) -> color_eyre::Result<Configuration<'a>> {
         let Compiler {
-            ref parser_data,
-            ref mut file_diagnostics,
+            ref parser_data, ..
         } = self;
 
         let mut configuration_is_valid = true;
@@ -89,8 +106,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
             ($field_name:expr, $parse_function:expr) => {{
                 match parser_data.configuration.get($field_name) {
                     None => {
-                        file_diagnostics
-                            .error(format!("{} field missing in configuration!", $field_name))
+                        self.error(format!("{} field missing in configuration!", $field_name))
                             .add_note("See the tutorial for a valid example configuration");
 
                         configuration_is_valid = false;
@@ -99,8 +115,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                     }
                     Some(x) => match $parse_function(x) {
                         Err(e) => {
-                            file_diagnostics
-                                .error("mismatched types")
+                            self.error("mismatched types")
                                 .add_message(Message::from_pest_span(&x.as_span(), e));
 
                             configuration_is_valid = false;
