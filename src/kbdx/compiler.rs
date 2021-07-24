@@ -1,16 +1,26 @@
-use color_eyre::eyre::eyre;
+use color_eyre::eyre::{bail, eyre};
 
 use std::borrow::Cow;
 use std::cell::UnsafeCell;
 
-use super::diagnostic::{Diagnostic, FileDiagnostics};
+use super::diagnostic::{Diagnostic, FileDiagnostics, Message};
 use super::parser::{Data, LazyButton, Pair, Parser, Rule};
 
-/// Represents a button that has been converted into its kbd Lisp form
-#[derive(Debug)]
-struct ProcessedButton {
-    string: String,
+use std::io::Write;
+
+/// The context in which a button is defined
+enum ButtonContext<'a> {
+    /// Button is defined within an [aliases] block
+    Aliases,
+    /// Button is defined within a layer
+    Layer(&'a str),
 }
+
+/// A String that is either owned or immutably borrowed
+type MaybeOwnedString<'a> = Cow<'a, str>;
+
+/// A button that has been converted into its kbd Lisp form
+pub type ProcessedButton<'a> = color_eyre::eyre::Result<MaybeOwnedString<'a>>;
 
 /// Struct containing typed [configuration] values
 #[derive(Debug)]
@@ -153,6 +163,174 @@ impl<'a, 'b> Compiler<'a, 'b> {
         } else {
             Err(eyre!("Invalid configuration!"))
         }
+    }
+
+    /// Searches for a button within a certain context, returning `Some(_)` if it is found and
+    /// `None` otherwise
+    fn lookup_button<'x>(
+        &self,
+        button_identifier: &'a str,
+        context: &ButtonContext,
+        prepend_at: bool,
+    ) -> Option<MaybeOwnedString<'a>> {
+        // 1: check in public/private of layer
+        if let ButtonContext::Layer(layer_name) = context {
+            if let Some(layer) = self.parser_data.layers.get(*layer_name) {
+                layer.aliases.get(button_identifier).map(|_| {
+                    MaybeOwnedString::Owned(format!(
+                        "{}{}.{}",
+                        if prepend_at { "@" } else { "" },
+                        layer_name,
+                        button_identifier
+                    ))
+                })
+            } else {
+                panic!("Invalid layer: {:?}", layer_name)
+            }
+        } else {
+            self.parser_data
+                .global_aliases
+                .get(button_identifier)
+                .map(|_| {
+                    if prepend_at {
+                        MaybeOwnedString::Owned(format!("@{}", button_identifier))
+                    } else {
+                        MaybeOwnedString::Borrowed(button_identifier)
+                    }
+                })
+        }
+    }
+
+    /// Given a button identifier `Pair`, processes the `Pair` and returns a `ProcessedButton`,
+    /// creating diagnostics if necessary
+    fn button_identifier_to_kbdx_alias(
+        &self,
+        button_identifier: Pair<'a>,
+        context: &ButtonContext,
+    ) -> ProcessedButton<'a> {
+        // replace the button alias with the name of the actual button
+        // to do this, we need to do all of the fun lookup rules with precedences
+        // 1. look under private and public
+        // 2. look under aliases
+        match self.lookup_button(button_identifier.as_str(), context, true) {
+            Some(button) => Ok(button),
+            None => {
+                self.error("undefined alias")
+                    .add_message(Message::from_pest_span(&button_identifier.as_span(), "could not resolve alias in scope"))
+                    .add_note("aliases are first searched for in the current layer's [private] and [public], and then in the global aliases table");
+
+                bail!("undefined alias")
+            }
+        }
+    }
+
+    /// Given a `Pair` WITHIN a `button`, recursively processes the `Pair` and its children and returns a
+    /// ProcessedButton.
+    fn process_inner_button_pair(
+        &self,
+        pair: Pair<'a>,
+        context: &ButtonContext,
+    ) -> ProcessedButton<'a> {
+        use Rule as R;
+
+        let processed_string = {
+            match pair.as_rule() {
+                // tap macros and normal buttons do not yet exhibit special behavior
+                r @ (R::tap_macro | R::normal_button) => {
+                    // TODO: 15 is just a random number
+                    let mut string_buffer = String::with_capacity(pair.as_str().len() + 15);
+
+                    if matches!(r, R::tap_macro) {
+                        string_buffer.push('#')
+                    }
+
+                    string_buffer.push('(');
+
+                    let mut num_children = 0;
+
+                    for child in pair.into_inner() {
+                        num_children += 1;
+
+                        string_buffer.push_str(&self.process_inner_button_pair(child, context)?);
+                        string_buffer.push(' ');
+                    }
+
+                    if num_children != 0 {
+                        // remove trailing space
+                        string_buffer.pop();
+                    }
+
+                    string_buffer.push(')');
+
+                    MaybeOwnedString::Owned(string_buffer)
+                }
+                R::button_alias => {
+                    let button_identifier = pair
+                        .into_inner()
+                        .next()
+                        .expect("Button aliases must have inner identifiers");
+
+                    self.button_identifier_to_kbdx_alias(button_identifier, context)?
+                }
+                R::variable_reference => {
+                    self.warning("unimplemented feature used").add_message(
+                        Message::from_pest_span(
+                            &pair.as_span(),
+                            "variable references are not yet supported",
+                        ),
+                    );
+
+                    bail!("unsupported operation")
+                }
+                R::normal_button_non_keyword => {
+                    MaybeOwnedString::Borrowed(pair.as_str().trim_end())
+                }
+                x => unreachable!("Cannot have {:?} in `button`", x),
+            }
+        };
+
+        Ok(processed_string)
+    }
+
+    /// Given a `button` rule, creates and returns a `ProcessedButton`
+    fn process_button_pair(&self, pair: Pair<'a>, context: &ButtonContext) -> ProcessedButton<'a> {
+        use Rule as R;
+
+        match pair.as_rule() {
+            // if its a regular button
+            R::button => {
+                let inner_rule = pair
+                    .into_inner()
+                    .next()
+                    .expect("Buttons must contain an inner rule");
+
+                self.process_inner_button_pair(inner_rule, context)
+            }
+            R::string => unimplemented!(),
+            R::reference => unimplemented!(),
+            R::identifier => self.button_identifier_to_kbdx_alias(pair, context),
+            x => {
+                // TODO: handle this at the parser level
+                // numbers are only valid during configuration
+                self.error("mismatched types")
+                    .add_message(Message::from_pest_span(
+                        &pair.as_span(),
+                        format!("expected button, found {:?}", x),
+                    ));
+
+                bail!("mismatched types");
+            }
+        }
+    }
+
+    /// Given a `LazyButton` and a `ButtonContext`, processes the `LazyButton` in-place, inserting
+    /// a ProcessedButton
+    fn process_lazy_button(
+        &self,
+        button: &LazyButton<'a, ProcessedButton<'a>>,
+        context: &ButtonContext,
+    ) -> color_eyre::Result<()> {
+        button.process(|pair| self.process_button_pair(pair, context))
     }
 
     pub fn compile_string(mut self) -> color_eyre::Result<String> {
