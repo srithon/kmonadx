@@ -4,6 +4,7 @@ use std::borrow::Cow;
 use std::cell::UnsafeCell;
 
 use super::diagnostic::{Diagnostic, FileDiagnostics, Message};
+use super::keys::verify_keycode;
 use super::parser::{Data, LazyButton, Pair, Parser, Rule};
 
 use std::io::Write;
@@ -292,6 +293,34 @@ impl<'a, 'b> Compiler<'a, 'b> {
         Ok(processed_string)
     }
 
+    fn process_double_quoted_string(&self, pair: Pair<'a>) -> ProcessedButton<'a> {
+        let inner_rule = pair
+            .into_inner()
+            .next()
+            .expect("Single quoted strings must have inner text");
+
+        Ok(MaybeOwnedString::Borrowed(inner_rule.as_str()))
+    }
+
+    fn process_single_quoted_string(&self, pair: Pair<'a>) -> ProcessedButton<'a> {
+        let inner_rule = pair
+            .into_inner()
+            .next()
+            .expect("Single quoted strings must have inner text");
+
+        if verify_keycode(inner_rule.as_str()) {
+            Ok(MaybeOwnedString::Borrowed(inner_rule.as_str()))
+        } else {
+            self.error("invalid keycode")
+                .add_message(Message::from_pest_span(
+                    &inner_rule.as_span(),
+                    format!("looked up {}", inner_rule.as_str()),
+                ));
+
+            bail!("invalid keycode")
+        }
+    }
+
     /// Given a `button` rule, creates and returns a `ProcessedButton`
     fn process_button_pair(&self, pair: Pair<'a>, context: &ButtonContext) -> ProcessedButton<'a> {
         use Rule as R;
@@ -306,7 +335,8 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
                 self.process_inner_button_pair(inner_rule, context)
             }
-            R::string => unimplemented!(),
+            R::single_quoted_string => self.process_single_quoted_string(pair),
+            R::double_quoted_string => self.process_double_quoted_string(pair),
             R::reference => unimplemented!(),
             R::identifier => self.button_identifier_to_kbdx_alias(pair, context),
             x => {
