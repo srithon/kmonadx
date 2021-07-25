@@ -92,9 +92,9 @@ pub type LayerMap<'a, T> = AHashMap<String, Layer<'a, T>>;
 
 #[derive(Debug)]
 pub struct Layer<'a, T> {
-    parent_name: Vec<&'a str>,
-    aliases: Map<'a, (LazyButton<'a, T>, AccessModifier)>,
-    keys: LazyButtonMap<'a, T>,
+    pub parent_name: Vec<&'a str>,
+    pub aliases: Map<'a, (LazyButton<'a, T>, AccessModifier)>,
+    pub keys: LazyButtonMap<'a, T>,
 }
 
 impl<'a, T> Default for Layer<'a, T> {
