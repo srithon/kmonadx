@@ -215,7 +215,14 @@ impl Diagnostic {
             Label::secondary(self.file_id, byte_range)
         };
 
-        self.messages.push(label.with_message(message));
+        self.messages.push(
+            if let Some(message) = message {
+                label.with_message(message)
+            }
+            else {
+                label
+            }
+        );
 
         self
     }
@@ -233,7 +240,7 @@ impl Diagnostic {
 /// A single annotation on a byte range of the input
 pub struct Message {
     pub byte_range: Range<usize>,
-    pub text: String,
+    pub text: Option<String>,
 }
 
 impl Message {
@@ -253,7 +260,25 @@ impl Message {
     pub fn from_byte_range(byte_range: Range<usize>, message: impl Into<String>) -> Message {
         Message {
             byte_range,
-            text: message.into(),
+            text: Some(message.into()),
+        }
+    }
+
+    /// Creates a [Message] annotating a Pest Span
+    ///
+    /// This function is a convenience function for [Self::from_byte_range_no_text] and does not do any
+    /// extra processing
+    pub fn from_pest_span_no_text(span: &Span<'_>) -> Message {
+        Self::from_byte_range_no_text(span.start()..span.end())
+    }
+
+    /// Creates a [Message] from a range of bytes.
+    ///
+    /// See [Self::from_byte_range] for further documentation
+    pub fn from_byte_range_no_text(byte_range: Range<usize>) -> Message {
+        Message {
+            byte_range,
+            text: None,
         }
     }
 }
