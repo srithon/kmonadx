@@ -52,10 +52,7 @@ impl<'a, T> LazyButton<'a, T> {
     ///
     /// If the LazyButton is already Processed, returns Err.
     /// Otherwise, returns Ok
-    pub fn process(
-        &self,
-        f: impl FnOnce(Pair<'a>) -> T,
-    ) -> color_eyre::Result<()> {
+    pub fn process(&self, f: impl FnOnce(Pair<'a>) -> T) -> color_eyre::Result<()> {
         let mut internal = self.0.borrow_mut();
 
         *internal = match *internal {
@@ -67,8 +64,8 @@ impl<'a, T> LazyButton<'a, T> {
                 let pair = unsafe { std::ptr::read(pair) };
 
                 LazyButtonInternal::Processed(f(pair))
-            },
-            _ => return Err(color_eyre::eyre::eyre!("Trying to process processed item!"))
+            }
+            _ => return Err(color_eyre::eyre::eyre!("Trying to process processed item!")),
         };
 
         Ok(())
@@ -116,14 +113,14 @@ pub struct Data<'a, T> {
 
 pub struct Parser<'a, 'b> {
     pub(in crate::kbdx) input_string: &'a str,
-    pub(in crate::kbdx) file_diagnostics: FileDiagnostics<'a, 'b>
+    pub(in crate::kbdx) file_diagnostics: FileDiagnostics<'a, 'b>,
 }
 
 impl<'a, 'b> Parser<'a, 'b> {
     pub fn new(input_string: &'a str, file_diagnostics: FileDiagnostics<'a, 'b>) -> Parser<'a, 'b> {
         Parser {
             input_string,
-            file_diagnostics
+            file_diagnostics,
         }
     }
 
@@ -132,7 +129,7 @@ impl<'a, 'b> Parser<'a, 'b> {
 
         let span = match parser_error.location {
             InputLocation::Pos(byte_offset) => byte_offset..byte_offset + 1,
-            InputLocation::Span((byte_start, byte_end)) => byte_start..byte_end
+            InputLocation::Span((byte_start, byte_end)) => byte_start..byte_end,
         };
 
         let headline = "parsing error!".to_owned();
@@ -140,9 +137,18 @@ impl<'a, 'b> Parser<'a, 'b> {
         let error = self.file_diagnostics.error(headline);
 
         match parser_error.variant {
-            ErrorVariant::ParsingError { positives, negatives } => {
-                error.add_message(Message::from_byte_range(span.clone(), format!("Positive Attempts: {:?}", positives)));
-                error.add_message(Message::from_byte_range(span, format!("Negative Attempts: {:?}", negatives)));
+            ErrorVariant::ParsingError {
+                positives,
+                negatives,
+            } => {
+                error.add_message(Message::from_byte_range(
+                    span.clone(),
+                    format!("Positive Attempts: {:?}", positives),
+                ));
+                error.add_message(Message::from_byte_range(
+                    span,
+                    format!("Negative Attempts: {:?}", negatives),
+                ));
             }
             ErrorVariant::CustomError { message } => {
                 error.add_message(Message::from_byte_range(span, message));
@@ -156,7 +162,7 @@ impl<'a, 'b> Parser<'a, 'b> {
             Ok(pairs) => Ok(pairs),
             Err(parse_error) => {
                 self.add_parser_error(parse_error);
-                return Err(color_eyre::eyre::eyre!("Parsing error."))
+                return Err(color_eyre::eyre::eyre!("Parsing error."));
             }
         }
     }
@@ -298,8 +304,8 @@ impl<'a, 'b> Parser<'a, 'b> {
                     }
                 }
                 R::assignment => {
-                    let assignment =
-                        try_parse_assignment_lazy_button_rvalue(pair).expect("Assignments must be parseable");
+                    let assignment = try_parse_assignment_lazy_button_rvalue(pair)
+                        .expect("Assignments must be parseable");
 
                     use LayerContext as L;
                     match layer_context
@@ -350,7 +356,7 @@ impl<'a, 'b> Parser<'a, 'b> {
 /// `t_constructor`
 fn try_parse_assignment_generic<'a, T>(
     maybe_assignment: Pair<'a>,
-    t_constructor: impl Fn(Pair<'a>) -> T
+    t_constructor: impl Fn(Pair<'a>) -> T,
 ) -> Option<(&'a str, T)> {
     let input_rule = maybe_assignment.as_rule();
 
@@ -374,7 +380,9 @@ fn try_parse_assignment_generic<'a, T>(
 /// Given an `assignment` Pair, parses the assignment into a tuple where the first item is the
 /// lvalue identifier and the second item is a LazyButton<T>::Unprocessed containing the rvalue
 /// Pair
-fn try_parse_assignment_lazy_button_rvalue<'a, T>(maybe_assignment: Pair<'a>) -> Option<(&'a str, LazyButton<T>)> {
+fn try_parse_assignment_lazy_button_rvalue<'a, T>(
+    maybe_assignment: Pair<'a>,
+) -> Option<(&'a str, LazyButton<T>)> {
     try_parse_assignment_generic(maybe_assignment, LazyButton::new)
 }
 
