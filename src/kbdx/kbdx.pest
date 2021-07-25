@@ -144,12 +144,22 @@ string = _{
   single_quoted_string | double_quoted_string
 }
 
-double_quoted_string = {
-  "\"" ~ (!("\"") ~ ANY)* ~ "\""
+// TODO: handle escaped double quotes within inner_text
+double_quoted_string_inner_text = {
+  (!("\"") ~ ANY)*
 }
 
-single_quoted_string = {
-  "'" ~ (!("'") ~ ANY)* ~ "'"
+double_quoted_string = ${
+  "\"" ~ double_quoted_string_inner_text ~ "\""
+}
+
+// TODO: handle escaped single quotes within inner_text
+single_quoted_string_inner_text = {
+  (!("'") ~ ANY)*
+}
+
+single_quoted_string = ${
+  "'" ~ single_quoted_string_inner_text ~ "'"
 }
 
 // we need to have a separate reference_layer_name because layer_name is
