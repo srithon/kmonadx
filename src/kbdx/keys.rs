@@ -336,5 +336,16 @@ static ALIASES: phf::Map<&'static str, &'static str> = alias_phf_map_helper! {
 
 /// Returns `true` for valid keycodes, `false` otherwise
 pub fn verify_keycode(string: &str) -> bool {
-    KEY_NAMES.contains(string) || ALIASES.contains_key(string)
+    macro_rules! check {
+        ($string:expr) => {{
+            KEY_NAMES.contains($string) || ALIASES.contains_key($string)
+        }};
+    }
+
+    // HACK: puts ascii letters in the english alphabet in uppercase to match KEY_NAMES
+    if string.len() == 1 {
+        check!(&string.to_ascii_uppercase())
+    } else {
+        check!(string)
+    }
 }
