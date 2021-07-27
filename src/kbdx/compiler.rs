@@ -7,7 +7,7 @@ use std::cell::UnsafeCell;
 
 use super::diagnostic::{Diagnostic, FileDiagnostics, Message};
 use super::keys::verify_keycode;
-use super::parser::{AccessModifier, Data, LazyButton, Pair, Parser, Rule};
+use super::parser::{AccessModifier, Data, LazyButton, Map, Pair, Parser, Rule};
 
 const INDENT_LEVEL: &'static str = "  ";
 
@@ -54,6 +54,46 @@ impl<'a> Display for Configuration<'a> {
                 format!("fallthrough true"),
                 format!("allow-cmd {}", self.allow_cmd),
             ],
+            formatter,
+        )
+    }
+}
+
+struct AliasBlock<'a, 'b> {
+    // if defined in [aliases], then None
+    layer_name: Option<&'b str>,
+    aliases: Map<'a, (LazyButton<'a, ProcessedButton<'a>>, AccessModifier)>,
+}
+
+impl<'a, 'b> Display for AliasBlock<'a, 'b> {
+    // TODO: move into this function so that the memory can be freed after use
+    // in order to do this, we would need to change the code a bit and not use the Display trait
+    // directly
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        let layer_prefix = if let Some(prefix) = self.layer_name {
+            format!("{}.", prefix)
+        } else {
+            String::new()
+        };
+
+        write_section(
+            "defalias",
+            self.aliases.iter().filter_map(|(name, button)| {
+                if !button.0.is_unprocessed() {
+                    Some(format!(
+                        "{}{} {}",
+                        layer_prefix,
+                        name,
+                        button
+                            .0
+                            .unwrap_processed_ref()
+                            .as_ref()
+                            .expect("All buttons must be successful parsed")
+                    ))
+                } else {
+                    None
+                }
+            }),
             formatter,
         )
     }
@@ -289,7 +329,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                     .get(button_identifier.as_str())
                 {
                     // process the button
-                    let _ = self.process_lazy_button(key, context);
+                    let _ = self.process_lazy_button(key, &ButtonContext::Aliases);
 
                     Ok(if prepend_at {
                         MaybeOwnedString::Owned(format!("@{}", button_identifier))
@@ -464,7 +504,6 @@ impl<'a, 'b> Compiler<'a, 'b> {
     pub fn compile_string(mut self) -> color_eyre::Result<String> {
         // read configuration into Configuration struct
         let configuration = self.try_parse_configuration()?;
-
         println!("Configuration: {:#?}", configuration);
 
         for (layer_name, layer) in &self.parser_data.layers {
@@ -480,14 +519,16 @@ impl<'a, 'b> Compiler<'a, 'b> {
             bail!("errors")
         }
 
-        for (layer_name, layer) in self.parser_data.layers {
-            println!("[{}]", layer_name);
-            for (key_name, key_value) in layer.keys {
-                println!("{}: {}", key_name, &key_value.unwrap_processed().unwrap())
-            }
-        }
-
         println!("{}", configuration);
+
+        for (layer_name, layer) in self.parser_data.layers {
+            let alias_block = AliasBlock {
+                layer_name: Some(&layer_name),
+                aliases: layer.aliases,
+            };
+
+            println!("{}", alias_block);
+        }
 
         // bail because we do not have anything to return yet
         bail!("unfinished implementation")
