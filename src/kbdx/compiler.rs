@@ -517,9 +517,17 @@ where
         };
     }
 
+    let mut body_iterator = body.into_iter().peekable();
+
+    // if there are no children, do not write the block
+    if body_iterator.peek().is_none() {
+        // tried returning Err to stop the newline from being written but that made println panic
+        return Ok(());
+    }
+
     _write!("({}", header);
 
-    for child in body.into_iter() {
+    for child in body_iterator {
         _write!("{}{}", INDENT_LEVEL, child)
     }
 
