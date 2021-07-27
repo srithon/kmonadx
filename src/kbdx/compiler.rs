@@ -405,8 +405,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
             }
             R::single_quoted_string => self.process_single_quoted_string(pair),
             R::double_quoted_string => self.process_double_quoted_string(pair),
-            R::reference => unimplemented!(),
-            R::identifier => self.button_identifier_to_kbdx_alias(pair, context),
+            R::identifier | R::reference => self.button_identifier_to_kbdx_alias(pair, context),
             x => {
                 // TODO: handle this at the parser level
                 // numbers are only valid during configuration
