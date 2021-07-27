@@ -133,7 +133,7 @@ pub struct FileDiagnostics<'a, 'b> {
     file_id: usize,
     diagnostic_aggregator: &'a mut DiagnosticAggregator<'b>,
     warning_count: usize,
-    error_count: usize
+    error_count: usize,
 }
 
 impl<'a, 'b> FileDiagnostics<'a, 'b> {
@@ -147,7 +147,7 @@ impl<'a, 'b> FileDiagnostics<'a, 'b> {
             file_id,
             diagnostic_aggregator,
             warning_count: 0,
-            error_count: 0
+            error_count: 0,
         }
     }
 
@@ -215,14 +215,11 @@ impl Diagnostic {
             Label::secondary(self.file_id, byte_range)
         };
 
-        self.messages.push(
-            if let Some(message) = message {
-                label.with_message(message)
-            }
-            else {
-                label
-            }
-        );
+        self.messages.push(if let Some(message) = message {
+            label.with_message(message)
+        } else {
+            label
+        });
 
         self
     }
