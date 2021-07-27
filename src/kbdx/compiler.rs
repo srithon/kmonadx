@@ -5,7 +5,7 @@ use std::cell::UnsafeCell;
 
 use super::diagnostic::{Diagnostic, FileDiagnostics, Message};
 use super::keys::verify_keycode;
-use super::parser::{Data, LazyButton, Pair, Parser, Rule};
+use super::parser::{AccessModifier, Data, LazyButton, Pair, Parser, Rule};
 
 use std::io::Write;
 
@@ -170,35 +170,112 @@ impl<'a, 'b> Compiler<'a, 'b> {
     /// `None` otherwise
     fn lookup_button<'x>(
         &self,
-        button_identifier: &'a str,
+        // The Pair containing the button's rvalue.
+        // This could be of type `reference` or `identifier`
+        button_identifier: Pair<'a>,
+        // The layer in which the button is being looked up from
         context: &ButtonContext,
         prepend_at: bool,
-    ) -> Option<MaybeOwnedString<'a>> {
-        // 1: check in public/private of layer
-        if let ButtonContext::Layer(layer_name) = context {
-            if let Some(layer) = self.parser_data.layers.get(*layer_name) {
-                layer.aliases.get(button_identifier).map(|_| {
-                    MaybeOwnedString::Owned(format!(
-                        "{}{}.{}",
-                        if prepend_at { "@" } else { "" },
-                        layer_name,
-                        button_identifier
-                    ))
-                })
-            } else {
-                panic!("Invalid layer: {:?}", layer_name)
+    ) -> ProcessedButton<'a> {
+        use Rule as R;
+
+        match button_identifier.as_rule() {
+            R::reference => {
+                let mut pairs = button_identifier.into_inner();
+                let reference_layer_name = pairs.next().expect("Pair must have >0 children");
+
+                if let Some(layer) = self.parser_data.layers.get(reference_layer_name.as_str()) {
+                    let reference_identifier = pairs.next().expect("Pair must have >1 children");
+
+                    if let Some((key, access_modifier)) =
+                        layer.aliases.get(reference_identifier.as_str())
+                    {
+                        // process the button
+                        //
+                        // TODO: unify the occurrences of this line
+                        // currently there are 3 separate instances
+                        let _ = self.process_lazy_button(key, context);
+
+                        if matches!(access_modifier, AccessModifier::Public) {
+                            Ok(MaybeOwnedString::Owned(format!(
+                                "{}{}.{}",
+                                if prepend_at { "@" } else { "" },
+                                reference_layer_name.as_str(),
+                                reference_identifier.as_str()
+                            )))
+                        } else {
+                            self.error(format!(
+                                "button `{}` is private",
+                                reference_identifier.as_str()
+                            ))
+                            .add_message(Message::from_pest_span_no_text(
+                                &reference_identifier.as_span(),
+                            ))
+                            .add_note("consider making it public to use it in this context");
+
+                            bail!("illegal access")
+                        }
+                    } else {
+                        self.error("could not resolve layer reference").add_message(
+                            Message::from_pest_span_no_text(&reference_identifier.as_span()),
+                        );
+
+                        bail!("undefined reference")
+                    }
+                } else {
+                    self.error("undefined layer")
+                        .add_message(Message::from_pest_span_no_text(
+                            &reference_layer_name.as_span(),
+                        ));
+
+                    bail!("undefined layer")
+                }
             }
-        } else {
-            self.parser_data
-                .global_aliases
-                .get(button_identifier)
-                .map(|_| {
-                    if prepend_at {
+            R::identifier => {
+                if let ButtonContext::Layer(layer_name) = context {
+                    // try to lookup in layer
+                    if let Some(layer) = self.parser_data.layers.get(*layer_name) {
+                        if let Some((key, _)) = layer.aliases.get(button_identifier.as_str()) {
+                            // process the button
+                            let _ = self.process_lazy_button(key, context);
+
+                            return Ok(MaybeOwnedString::Owned(format!(
+                                "{}{}.{}",
+                                if prepend_at { "@" } else { "" },
+                                layer_name,
+                                button_identifier.as_str()
+                            )));
+                        }
+                        // else, proceed by trying in global
+                    } else {
+                        unreachable!("Layer context cannot be invalid! {:?}", layer_name)
+                    }
+                }
+
+                if let Some(key) = self
+                    .parser_data
+                    .global_aliases
+                    .get(button_identifier.as_str())
+                {
+                    // process the button
+                    let _ = self.process_lazy_button(key, context);
+
+                    Ok(if prepend_at {
                         MaybeOwnedString::Owned(format!("@{}", button_identifier))
                     } else {
-                        MaybeOwnedString::Borrowed(button_identifier)
-                    }
-                })
+                        MaybeOwnedString::Borrowed(button_identifier.as_str())
+                    })
+                } else {
+                    self.error("could not resolve alias")
+                        .add_message(Message::from_pest_span_no_text(
+                            &button_identifier.as_span(),
+                        ))
+                        .add_note("should you be using a reference instead?");
+
+                    bail!("could not resolve alias");
+                }
+            }
+            x => unreachable!("Cannot pass in {:?} to lookup_button", x),
         }
     }
 
@@ -213,16 +290,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
         // to do this, we need to do all of the fun lookup rules with precedences
         // 1. look under private and public
         // 2. look under aliases
-        match self.lookup_button(button_identifier.as_str(), context, true) {
-            Some(button) => Ok(button),
-            None => {
-                self.error("undefined alias")
-                    .add_message(Message::from_pest_span(&button_identifier.as_span(), "could not resolve alias in scope"))
-                    .add_note("aliases are first searched for in the current layer's [private] and [public], and then in the global aliases table");
-
-                bail!("undefined alias")
-            }
-        }
+        self.lookup_button(button_identifier, context, true)
     }
 
     /// Given a `Pair` WITHIN a `button`, recursively processes the `Pair` and its children and returns a
