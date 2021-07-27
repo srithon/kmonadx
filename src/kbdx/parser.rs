@@ -8,6 +8,7 @@ use crate::util::StringStack;
 use std::cell::RefCell;
 
 use super::diagnostic::*;
+use super::keys::verify_keycode;
 
 #[derive(Parser)]
 #[grammar = "kbdx/kbdx.pest"]
@@ -297,37 +298,61 @@ impl<'a, 'b> Parser<'a, 'b> {
                     }
                 }
                 R::assignment => {
-                    let assignment = try_parse_assignment_lazy_button_rvalue(pair)
-                        .expect("Assignments must be parseable");
-
                     use LayerContext as L;
-                    match layer_context
+
+                    let layer_context = layer_context
                         .as_ref()
-                        .expect("Assignments must be within a context!")
-                    {
-                        L::Aliases => {
-                            aliases.insert(assignment.0, assignment.1);
-                        }
-                        L::Public => {
-                            (&mut current_layer)
-                                .as_mut()
-                                .expect("Current layer must exist")
-                                .aliases
-                                .insert(assignment.0, (assignment.1, AccessModifier::Public));
-                        }
-                        L::Private => {
-                            (&mut current_layer)
-                                .as_mut()
-                                .expect("Current layer must exist")
-                                .aliases
-                                .insert(assignment.0, (assignment.1, AccessModifier::Private));
-                        }
-                        L::Keys => {
+                        .expect("Assignments must be within a context!");
+
+                    if matches!(layer_context, L::Keys) {
+                        let assignment =
+                            try_parse_assignment_generic(pair, LazyButton::new, |keycode_pair| {
+                                let res = verify_keycode(keycode_pair.as_str());
+
+                                if !res {
+                                    self.file_diagnostics
+                                        .error(format!(
+                                            "invalid keycode `{}`",
+                                            &keycode_pair.as_str()
+                                        ))
+                                        .add_message(Message::from_pest_span_no_text(
+                                            &keycode_pair.as_span(),
+                                        ));
+                                }
+
+                                res
+                            });
+
+                        if let Some(assignment) = assignment {
                             (&mut current_layer)
                                 .as_mut()
                                 .expect("Current layer must exist")
                                 .keys
                                 .insert(assignment.0, assignment.1);
+                        }
+                    } else {
+                        let assignment = try_parse_assignment_lazy_button_rvalue(pair)
+                            .expect("Assignments must be parseable");
+
+                        match layer_context {
+                            L::Aliases => {
+                                aliases.insert(assignment.0, assignment.1);
+                            }
+                            L::Public => {
+                                (&mut current_layer)
+                                    .as_mut()
+                                    .expect("Current layer must exist")
+                                    .aliases
+                                    .insert(assignment.0, (assignment.1, AccessModifier::Public));
+                            }
+                            L::Private => {
+                                (&mut current_layer)
+                                    .as_mut()
+                                    .expect("Current layer must exist")
+                                    .aliases
+                                    .insert(assignment.0, (assignment.1, AccessModifier::Private));
+                            }
+                            _ => unreachable!(),
                         }
                     }
                 }
@@ -350,6 +375,7 @@ impl<'a, 'b> Parser<'a, 'b> {
 fn try_parse_assignment_generic<'a, T>(
     maybe_assignment: Pair<'a>,
     t_constructor: impl Fn(Pair<'a>) -> T,
+    mut lvalue_validator: impl FnMut(&Pair<'a>) -> bool,
 ) -> Option<(&'a str, T)> {
     let input_rule = maybe_assignment.as_rule();
 
@@ -359,6 +385,10 @@ fn try_parse_assignment_generic<'a, T>(
 
     let mut pairs = maybe_assignment.into_inner();
     let lvalue = pairs.next().expect("The pair must have an lvalue!");
+
+    if !lvalue_validator(&lvalue) {
+        return None;
+    }
 
     assert!(matches!(lvalue.as_rule(), Rule::identifier));
 
@@ -376,13 +406,13 @@ fn try_parse_assignment_generic<'a, T>(
 fn try_parse_assignment_lazy_button_rvalue<'a, T>(
     maybe_assignment: Pair<'a>,
 ) -> Option<(&'a str, LazyButton<T>)> {
-    try_parse_assignment_generic(maybe_assignment, LazyButton::new)
+    try_parse_assignment_generic(maybe_assignment, LazyButton::new, |_| true)
 }
 
 /// Given an `assignment` Pair, parses the assignment into a tuple where the first item is the
 /// lvalue identifier and the second item is the rvalue Pair
 fn try_parse_assignment_pair_rvalue<'a>(maybe_assignment: Pair<'a>) -> Option<(&'a str, Pair<'a>)> {
-    try_parse_assignment_generic(maybe_assignment, |x| x)
+    try_parse_assignment_generic(maybe_assignment, |x| x, |_| true)
 }
 
 /// Given a Pair that contains `assignment`'s, return a PairMap with the format
