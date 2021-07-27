@@ -63,8 +63,16 @@ mod parse {
         };
     }
 
-    create_type_parser!(double_quoted_string, &'a str, as_str);
-    create_type_parser!(single_quoted_string, &'a str, as_str);
+    create_type_parser!(double_quoted_string, &'a str, |i: Pair<'a>| i
+        .into_inner()
+        .next()
+        .expect("Double quoted strings must contain inner text")
+        .as_str());
+    create_type_parser!(single_quoted_string, &'a str, |i: Pair<'a>| i
+        .into_inner()
+        .next()
+        .expect("Single quoted strings must contain inner text")
+        .as_str());
     create_type_parser!(number, usize, |i: Pair<'a>| i
         .as_str()
         .parse::<usize>()
