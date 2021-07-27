@@ -436,6 +436,27 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
         println!("Configuration: {:#?}", configuration);
 
-        Ok(format!("{:#?}", self.parser_data))
+        for (layer_name, layer) in &self.parser_data.layers {
+            let button_context = ButtonContext::Layer(&layer_name);
+
+            for (key_name, key_value) in &layer.keys {
+                println!("Processing {}", key_name);
+                let _ = self.process_lazy_button(&key_value, &button_context);
+            }
+        }
+
+        if self.has_errors() {
+            bail!("errors")
+        }
+
+        for (layer_name, layer) in self.parser_data.layers {
+            println!("[{}]", layer_name);
+            for (key_name, key_value) in layer.keys {
+                println!("{}: {}", key_name, &key_value.unwrap_processed().unwrap())
+            }
+        }
+
+        // bail because we do not have anything to return yet
+        bail!("unfinished implementation")
     }
 }
