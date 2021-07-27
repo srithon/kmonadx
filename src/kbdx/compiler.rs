@@ -332,7 +332,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                     let _ = self.process_lazy_button(key, &ButtonContext::Aliases);
 
                     Ok(if prepend_at {
-                        MaybeOwnedString::Owned(format!("@{}", button_identifier))
+                        MaybeOwnedString::Owned(format!("@{}", button_identifier.as_str()))
                     } else {
                         MaybeOwnedString::Borrowed(button_identifier.as_str())
                     })
