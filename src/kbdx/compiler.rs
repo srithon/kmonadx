@@ -519,7 +519,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
             bail!("errors")
         }
 
-        println!("{}", configuration);
+        print!("{}", configuration);
 
         for (layer_name, layer) in self.parser_data.layers {
             let alias_block = AliasBlock {
@@ -527,7 +527,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 aliases: layer.aliases,
             };
 
-            println!("{}", alias_block);
+            print!("{}", alias_block);
         }
 
         // bail because we do not have anything to return yet
@@ -563,6 +563,9 @@ where
     // if there are no children, do not write the block
     if body_iterator.peek().is_none() {
         // tried returning Err to stop the newline from being written but that made println panic
+        // solution was to replace writeln with just write
+        // with write, nothing gets written unless this function writes something
+        // write_section writes a trailing newline, so it takes care of that on its own
         return Ok(());
     }
 
