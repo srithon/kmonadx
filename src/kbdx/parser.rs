@@ -5,7 +5,7 @@ use pest_derive::Parser;
 
 use crate::util::StringStack;
 
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
 
 use super::diagnostic::*;
 use super::keys::verify_keycode;
@@ -78,6 +78,14 @@ impl<'a, T> LazyButton<'a, T> {
             LazyButtonInternal::Processed(t) => t,
             _ => panic!("Tried to unwrap unprocessed LazyButton as processed"),
         }
+    }
+
+    /// Attempts to extract an &T out of a LazyButton::Processed, panicking if it is Unprocessed.
+    pub fn unwrap_processed_ref(&self) -> std::cell::Ref<T> {
+        Ref::map(self.0.borrow(), |button| match button {
+            LazyButtonInternal::Processed(ref t) => t,
+            _ => panic!("Tried to unwrap unprocessed LazyButton as processed"),
+        })
     }
 }
 
