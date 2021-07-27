@@ -1,5 +1,7 @@
 use color_eyre::eyre::{bail, eyre};
 
+use std::fmt::{self, Display, Formatter};
+
 use std::borrow::Cow;
 use std::cell::UnsafeCell;
 
@@ -7,7 +9,7 @@ use super::diagnostic::{Diagnostic, FileDiagnostics, Message};
 use super::keys::verify_keycode;
 use super::parser::{AccessModifier, Data, LazyButton, Pair, Parser, Rule};
 
-use std::io::Write;
+const INDENT_LEVEL: &'static str = "  ";
 
 /// The context in which a button is defined
 enum ButtonContext<'a> {
@@ -34,6 +36,27 @@ struct Configuration<'a> {
     fallthrough: bool,
     allow_cmd: bool,
     starting_layer: &'a str,
+}
+
+impl<'a> Display for Configuration<'a> {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        write_section(
+            "defconfig",
+            // OPTIMIZE: do this without allocating a vector and separate strings
+            vec![
+                format!("input (device-file \"{}\")", self.input),
+                format!(
+                    "output (uinput-sink \"{}\" \"{}\")",
+                    self.output_name, self.output_pre_command
+                ),
+                format!("cmp-seq {}", self.cmp_seq),
+                format!("cmp-seq-delay {}", self.cmp_seq_delay),
+                format!("fallthrough true"),
+                format!("allow-cmd {}", self.allow_cmd),
+            ],
+            formatter,
+        )
+    }
 }
 
 pub struct Compiler<'a, 'b> {
@@ -464,7 +487,43 @@ impl<'a, 'b> Compiler<'a, 'b> {
             }
         }
 
+        println!("{}", configuration);
+
         // bail because we do not have anything to return yet
         bail!("unfinished implementation")
     }
+}
+
+/// Writes a Lisp "section" where all items in `body` are indented.
+/// The output is in the following form:
+/// ```
+/// (<header>
+///     <body item 1>
+///     <body item 2>
+///     ...
+///     )
+/// ```
+fn write_section<T>(
+    header: &str,
+    body: impl IntoIterator<Item = T>,
+    formatter: &mut Formatter<'_>,
+) -> fmt::Result
+where
+    T: Display,
+{
+    macro_rules! _write {
+        ($($inner:tt),+) => {
+            writeln!(formatter, $($inner),+)?;
+        };
+    }
+
+    _write!("({}", header);
+
+    for child in body.into_iter() {
+        _write!("{}{}", INDENT_LEVEL, child)
+    }
+
+    _write!("{})", INDENT_LEVEL);
+
+    Ok(())
 }
