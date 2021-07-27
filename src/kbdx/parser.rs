@@ -266,13 +266,6 @@ impl<'a, 'b> Parser<'a, 'b> {
                             _ => unreachable!(),
                         }
                     }
-
-                    eprintln!(
-                        "Header: {}; Stack: {}; Layer Context: {:#?}",
-                        header_text,
-                        layer_stack.as_str(),
-                        layer_context
-                    )
                 }
                 R::header_aliases => {
                     layer_stack.clear();
