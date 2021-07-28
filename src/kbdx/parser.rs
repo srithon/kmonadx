@@ -387,8 +387,8 @@ impl<'a, 'b> Parser<'a, 'b> {
 /// rvalue Pair passed into `rvalue_mapper`
 fn try_parse_assignment_generic<'a, T, U>(
     maybe_assignment: Pair<'a>,
-    lvalue_mapper: impl FnMut(Pair<'a>) -> T,
-    rvalue_mapper: impl FnMut(Pair<'a>) -> U,
+    mut lvalue_mapper: impl FnMut(Pair<'a>) -> T,
+    mut rvalue_mapper: impl FnMut(Pair<'a>) -> U,
 ) -> Option<(T, U)> {
     let input_rule = maybe_assignment.as_rule();
 
