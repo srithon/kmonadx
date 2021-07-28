@@ -8,7 +8,7 @@ use crate::util::StringStack;
 use std::cell::{Ref, RefCell};
 
 use super::diagnostic::*;
-use super::keys::verify_keycode;
+use super::keys::normalize_keycode;
 
 #[derive(Parser)]
 #[grammar = "kbdx/kbdx.pest"]
@@ -313,11 +313,12 @@ impl<'a, 'b> Parser<'a, 'b> {
                         .expect("Assignments must be within a context!");
 
                     if matches!(layer_context, L::Keys) {
-                        let assignment =
-                            try_parse_assignment_generic(pair, LazyButton::new, |keycode_pair| {
-                                let res = verify_keycode(keycode_pair.as_str());
+                        let assignment = try_parse_assignment_generic(
+                            pair,
+                            |keycode_pair| {
+                                let res = normalize_keycode(keycode_pair.as_str());
 
-                                if !res {
+                                if res.is_none() {
                                     self.file_diagnostics
                                         .error(format!(
                                             "invalid keycode `{}`",
@@ -329,14 +330,18 @@ impl<'a, 'b> Parser<'a, 'b> {
                                 }
 
                                 res
-                            });
+                            },
+                            LazyButton::new,
+                        );
 
                         if let Some(assignment) = assignment {
-                            (&mut current_layer)
-                                .as_mut()
-                                .expect("Current layer must exist")
-                                .keys
-                                .insert(assignment.0, assignment.1);
+                            if let (Some(lvalue), rvalue) = assignment {
+                                (&mut current_layer)
+                                    .as_mut()
+                                    .expect("Current layer must exist")
+                                    .keys
+                                    .insert(lvalue, rvalue);
+                            }
                         }
                     } else {
                         let assignment = try_parse_assignment_lazy_button_rvalue(pair)
@@ -378,13 +383,13 @@ impl<'a, 'b> Parser<'a, 'b> {
 }
 
 /// Given an `assignment` Pair, parses the assignment into a tuple where the first item is the
-/// lvalue identifier and the second item is the result of the rvalue Pair passed into
-/// `t_constructor`
-fn try_parse_assignment_generic<'a, T>(
+/// result of the lvalue Pair passed into `lvalue_mapper` and the second item is the result of the
+/// rvalue Pair passed into `rvalue_mapper`
+fn try_parse_assignment_generic<'a, T, U>(
     maybe_assignment: Pair<'a>,
-    t_constructor: impl Fn(Pair<'a>) -> T,
-    mut lvalue_validator: impl FnMut(&Pair<'a>) -> bool,
-) -> Option<(&'a str, T)> {
+    lvalue_mapper: impl FnMut(Pair<'a>) -> T,
+    rvalue_mapper: impl FnMut(Pair<'a>) -> U,
+) -> Option<(T, U)> {
     let input_rule = maybe_assignment.as_rule();
 
     if input_rule != Rule::assignment {
@@ -394,18 +399,12 @@ fn try_parse_assignment_generic<'a, T>(
     let mut pairs = maybe_assignment.into_inner();
     let lvalue = pairs.next().expect("The pair must have an lvalue!");
 
-    if !lvalue_validator(&lvalue) {
-        return None;
-    }
-
-    assert!(matches!(lvalue.as_rule(), Rule::identifier));
-
     // TODO support lists as lvalues
-    let identifier_name = lvalue.as_str();
+    assert!(matches!(lvalue.as_rule(), Rule::identifier));
 
     let rvalue = pairs.next().expect("The pair must have an rvalue!");
 
-    Some((identifier_name, t_constructor(rvalue)))
+    Some((lvalue_mapper(lvalue), rvalue_mapper(rvalue)))
 }
 
 /// Given an `assignment` Pair, parses the assignment into a tuple where the first item is the
@@ -414,13 +413,13 @@ fn try_parse_assignment_generic<'a, T>(
 fn try_parse_assignment_lazy_button_rvalue<'a, T>(
     maybe_assignment: Pair<'a>,
 ) -> Option<(&'a str, LazyButton<T>)> {
-    try_parse_assignment_generic(maybe_assignment, LazyButton::new, |_| true)
+    try_parse_assignment_generic(maybe_assignment, |x| x.as_str(), LazyButton::new)
 }
 
 /// Given an `assignment` Pair, parses the assignment into a tuple where the first item is the
 /// lvalue identifier and the second item is the rvalue Pair
 fn try_parse_assignment_pair_rvalue<'a>(maybe_assignment: Pair<'a>) -> Option<(&'a str, Pair<'a>)> {
-    try_parse_assignment_generic(maybe_assignment, |x| x, |_| true)
+    try_parse_assignment_generic(maybe_assignment, |x| x.as_str(), |x| x)
 }
 
 /// Given a Pair that contains `assignment`'s, return a PairMap with the format
