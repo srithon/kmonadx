@@ -6,7 +6,7 @@ use std::borrow::Cow;
 use std::cell::UnsafeCell;
 
 use super::diagnostic::{Diagnostic, FileDiagnostics, Message};
-use super::keys::verify_keycode;
+use super::keys::normalize_keycode;
 use super::parser::{AccessModifier, Data, LazyButton, Map, Pair, Parser, Rule};
 
 const INDENT_LEVEL: &'static str = "  ";
@@ -447,8 +447,8 @@ impl<'a, 'b> Compiler<'a, 'b> {
             .next()
             .expect("Single quoted strings must have inner text");
 
-        if verify_keycode(inner_rule.as_str()) {
-            Ok(MaybeOwnedString::Borrowed(inner_rule.as_str()))
+        if let Some(keycode) = normalize_keycode(inner_rule.as_str()) {
+            Ok(MaybeOwnedString::Borrowed(keycode))
         } else {
             self.error("invalid keycode")
                 .add_message(Message::from_pest_span(
