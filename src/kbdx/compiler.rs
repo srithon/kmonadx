@@ -9,6 +9,8 @@ use super::diagnostic::{Diagnostic, FileDiagnostics, Message};
 use super::keys::normalize_keycode;
 use super::parser::{AccessModifier, Data, LazyButton, Map, Pair, Parser, Rule};
 
+use std::collections::BTreeSet;
+
 const INDENT_LEVEL: &'static str = "  ";
 
 /// The context in which a button is defined
@@ -506,12 +508,15 @@ impl<'a, 'b> Compiler<'a, 'b> {
         let configuration = self.try_parse_configuration()?;
         println!("Configuration: {:#?}", configuration);
 
+        // we use used_keys to derive the source layer
+        let mut used_keys = BTreeSet::default();
+
         for (layer_name, layer) in &self.parser_data.layers {
             let button_context = ButtonContext::Layer(&layer_name);
 
             for (key_name, key_value) in &layer.keys {
-                println!("Processing {}", key_name);
                 let _ = self.process_lazy_button(&key_value, &button_context);
+                used_keys.insert(key_name);
             }
         }
 
