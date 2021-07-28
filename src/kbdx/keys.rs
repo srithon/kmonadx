@@ -334,11 +334,19 @@ static ALIASES: phf::Map<&'static str, &'static str> = alias_phf_map_helper! {
     "prev" => "PreviousSong"
 };
 
-/// Returns `true` for valid keycodes, `false` otherwise
-pub fn verify_keycode(string: &str) -> bool {
+/// Returns Some(normalized keycode) for valid keycodes, `None` otherwise.
+/// Alias keycodes are normalized into their standard counterparts.
+/// Lowercase letters are normalized into their uppercase counterparts.
+pub fn normalize_keycode(string: &str) -> Option<&'static str> {
     macro_rules! check {
         ($string:expr) => {{
-            KEY_NAMES.contains($string) || ALIASES.contains_key($string)
+            if let Some(string) = KEY_NAMES.get_key($string) {
+                Some(string)
+            } else if let Some(string) = ALIASES.get($string) {
+                Some(string)
+            } else {
+                None
+            }
         }};
     }
 
