@@ -87,6 +87,22 @@ impl<'a, T> LazyButton<'a, T> {
             _ => panic!("Tried to unwrap unprocessed LazyButton as processed"),
         })
     }
+
+    /// Attempts to extract a Pair out of a LazyButton::Processed, panicking if it is Unprocessed.
+    pub fn unwrap_unprocessed(self) -> Pair<'a> {
+        match self.0.into_inner() {
+            LazyButtonInternal::Unprocessed(pair) => pair,
+            _ => panic!("Tried to unwrap processed LazyButton as unprocessed"),
+        }
+    }
+
+    /// Attempts to extract a Pair of a LazyButton::Processed, panicking if it is Unprocessed.
+    pub fn unwrap_unprocessed_ref(&self) -> std::cell::Ref<Pair<'a>> {
+        Ref::map(self.0.borrow(), |button| match button {
+            LazyButtonInternal::Unprocessed(ref pair) => pair,
+            _ => panic!("Tried to unwrap processed LazyButton as unprocessed"),
+        })
+    }
 }
 
 pub type Map<'a, T> = AHashMap<&'a str, T>;
