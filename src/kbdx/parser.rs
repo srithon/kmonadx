@@ -328,6 +328,8 @@ impl<'a, 'b> Parser<'a, 'b> {
                         .as_ref()
                         .expect("Assignments must be within a context!");
 
+                    let span = pair.as_span();
+
                     if matches!(layer_context, L::Keys) {
                         let assignment = try_parse_assignment_generic(
                             pair,
@@ -352,11 +354,24 @@ impl<'a, 'b> Parser<'a, 'b> {
 
                         if let Some(assignment) = assignment {
                             if let (Some(lvalue), rvalue) = assignment {
-                                (&mut current_layer)
+                                let old_value = (&mut current_layer)
                                     .as_mut()
                                     .expect("Current layer must exist")
                                     .keys
                                     .insert(lvalue, rvalue);
+
+                                if let Some(old_value) = old_value {
+                                    self.file_diagnostics
+                                        .error("key redefined in layer")
+                                        .add_message(Message::from_pest_span(
+                                            &span,
+                                            "redefinition was here",
+                                        ))
+                                        .add_message(Message::from_pest_span(
+                                            &old_value.unwrap_unprocessed().as_span(),
+                                            "originally defined here",
+                                        ));
+                                }
                             }
                         }
                     } else {
