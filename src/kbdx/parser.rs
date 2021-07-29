@@ -114,7 +114,7 @@ pub type LayerMap<'a, T> = AHashMap<String, Layer<'a, T>>;
 
 #[derive(Debug)]
 pub struct Layer<'a, T> {
-    pub parent_name: Vec<&'a str>,
+    pub parent_name: Vec<Pair<'a>>,
     pub aliases: Map<'a, (LazyButton<'a, T>, AccessModifier)>,
     pub keys: LazyButtonMap<'a, T>,
 }
@@ -306,8 +306,7 @@ impl<'a, 'b> Parser<'a, 'b> {
                             let parent_name = inner_property
                                 .into_inner()
                                 .next()
-                                .expect("Parent name must contain a layer_name")
-                                .as_str();
+                                .expect("Parent name must contain a layer_name");
 
                             (&mut current_layer)
                                 .as_mut()
