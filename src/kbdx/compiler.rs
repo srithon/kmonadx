@@ -7,7 +7,9 @@ use std::cell::UnsafeCell;
 
 use super::diagnostic::{Diagnostic, FileDiagnostics, Message};
 use super::keys::normalize_keycode;
-use super::parser::{AccessModifier, Data, LazyButton, Map, Pair, Parser, Rule};
+use super::parser::{
+    AccessModifier, Data, Layer as ParserLayer, LazyButton, Map, Pair, Parser, Rule,
+};
 
 use std::collections::BTreeSet;
 
@@ -517,6 +519,46 @@ impl<'a, 'b> Compiler<'a, 'b> {
             for (key_name, key_value) in &layer.keys {
                 let _ = self.process_lazy_button(&key_value, &button_context);
                 used_keys.insert(key_name);
+            }
+        }
+
+        if self.has_errors() {
+            bail!("errors")
+        }
+
+        let file_source = unsafe { (*self.file_diagnostics.get()).file_contents() }.as_bytes();
+        for (layer_name, layer) in &self.parser_data.layers {
+            for (_, (lazy_button, access_modifier)) in &layer.aliases {
+                if lazy_button.is_unprocessed() {
+                    let rvalue_span = lazy_button.unwrap_unprocessed_ref().as_span();
+
+                    // HACK: search for the lvalue byte bounds from the rvalue span
+                    // we should really be storing the lvalue span
+                    let (lvalue_start, lvalue_end) = {
+                        let mut current_byte = rvalue_span.start();
+                        let mut sep_byte = current_byte;
+
+                        loop {
+                            // NOTE: we do not have to check for current_byte bounds because assignments are guaranteed to come after a newline
+                            match file_source[current_byte] {
+                                b'\n' => break (current_byte + 1, sep_byte),
+                                b' ' | b'=' => sep_byte = current_byte,
+                                _ => (),
+                            };
+
+                            current_byte -= 1;
+                        }
+                    };
+
+                    self.warning(format!(
+                        "unused {} alias",
+                        match access_modifier {
+                            AccessModifier::Public => "public",
+                            AccessModifier::Private => "private",
+                        }
+                    ))
+                    .add_message(Message::from_byte_range_no_text(lvalue_start..lvalue_end));
+                }
             }
         }
 
