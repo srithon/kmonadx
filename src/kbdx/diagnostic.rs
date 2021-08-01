@@ -1,5 +1,5 @@
 use codespan_reporting::diagnostic::{Diagnostic as CodespanDiagnostic, *};
-use codespan_reporting::files::SimpleFiles;
+use codespan_reporting::files::{ Files, SimpleFiles };
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 
 use std::ops::Range;
@@ -185,6 +185,14 @@ impl<'a, 'b> FileDiagnostics<'a, 'b> {
 
     pub fn warning_count(&self) -> usize {
         self.warning_count
+    }
+
+    pub fn file_name(&self) -> String {
+        self.diagnostic_aggregator.file_db.name(self.file_id).unwrap()
+    }
+
+    pub fn file_contents(&self) -> &str {
+        self.diagnostic_aggregator.file_db.source(self.file_id).unwrap()
     }
 }
 
