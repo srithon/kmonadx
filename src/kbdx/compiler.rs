@@ -520,6 +520,19 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 let _ = self.process_lazy_button(&key_value, &button_context);
                 used_keys.insert(key_name);
             }
+
+            for parent_name in &layer.parent_name {
+                match parent_name.as_str() {
+                    "default" | "fallthrough" | "break" | "source" => (),
+                    x => {
+                        if self.parser_data.layers.get(x).is_none() {
+                            self.error("undefined parent layer").add_message(
+                                Message::from_pest_span_no_text(&parent_name.as_span()),
+                            );
+                        }
+                    }
+                }
+            }
         }
 
         if self.has_errors() {
