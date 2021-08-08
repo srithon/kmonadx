@@ -7,11 +7,14 @@ use std::cell::UnsafeCell;
 
 use super::diagnostic::{Diagnostic, FileDiagnostics, Message};
 use super::keys::normalize_keycode;
+use super::layer::{Layer as ProcessedLayer, LayerButton};
 use super::parser::{
-    AccessModifier, Data, Layer as ParserLayer, LazyButton, Map, Pair, Parser, Rule,
+    AccessModifier, Data, Layer as ParserLayer, LayerMap, LazyButton, Map, Pair, Parser, Rule,
 };
 
-use std::collections::BTreeSet;
+use ahash::AHashMap;
+
+use std::collections::{hash_map::Entry, BTreeSet};
 
 const INDENT_LEVEL: &'static str = "  ";
 
@@ -66,7 +69,7 @@ impl<'a> Display for Configuration<'a> {
 struct AliasBlock<'a, 'b> {
     // if defined in [aliases], then None
     layer_name: Option<&'b str>,
-    aliases: Map<'a, (LazyButton<'a, ProcessedButton<'a>>, AccessModifier)>,
+    aliases: &'b Map<'a, (LazyButton<'a, ProcessedButton<'a>>, AccessModifier)>,
 }
 
 impl<'a, 'b> Display for AliasBlock<'a, 'b> {
@@ -82,17 +85,17 @@ impl<'a, 'b> Display for AliasBlock<'a, 'b> {
 
         write_section(
             "defalias",
-            self.aliases.iter().filter_map(|(name, button)| {
-                if !button.0.is_unprocessed() {
+            self.aliases.iter().filter_map(|(name, (button, _))| {
+                if !button.is_unprocessed() {
                     Some(format!(
                         "{}{} {}",
                         layer_prefix,
                         name,
                         button
-                            .0
                             .unwrap_processed_ref()
                             .as_ref()
-                            .expect("All buttons must be successful parsed")
+                            .expect("All aliases must be successfully compiled")
+                            .as_ref()
                     ))
                 } else {
                     None
@@ -512,6 +515,8 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
         // we use used_keys to derive the source layer
         let mut used_keys = BTreeSet::default();
+        let mut processed_layers: AHashMap<String, ProcessedLayer<ProcessedButton>> =
+            AHashMap::default();
 
         for (layer_name, layer) in &self.parser_data.layers {
             let button_context = ButtonContext::Layer(&layer_name);
@@ -540,7 +545,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
         }
 
         let file_source = unsafe { (*self.file_diagnostics.get()).file_contents() }.as_bytes();
-        for (layer_name, layer) in &self.parser_data.layers {
+        for (_, layer) in &self.parser_data.layers {
             for (_, (lazy_button, access_modifier)) in &layer.aliases {
                 if lazy_button.is_unprocessed() {
                     let rvalue_span = lazy_button.unwrap_unprocessed_ref().as_span();
@@ -575,19 +580,176 @@ impl<'a, 'b> Compiler<'a, 'b> {
             }
         }
 
+        println!("{:#?}", used_keys);
+
+        let fallthrough_layer = ProcessedLayer::new(
+            used_keys
+                .iter()
+                .map(|_| LayerButton::fallthrough_button())
+                .collect::<Vec<_>>(),
+            None,
+        );
+        let break_layer = ProcessedLayer::new(
+            used_keys
+                .iter()
+                .map(|_| LayerButton::break_button())
+                .collect::<Vec<_>>(),
+            None,
+        );
+        let source_layer = ProcessedLayer::new(
+            used_keys
+                .iter()
+                .map(|s| LayerButton::new_inherited(s))
+                .collect::<Vec<_>>(),
+            None,
+        );
+
+        let default_parent = {
+            if configuration.fallthrough {
+                fallthrough_layer.clone()
+            } else {
+                break_layer.clone()
+            }
+        };
+
+        struct ProcessLayerImmutableContext<'a, 'b: 'a> {
+            default_parent: ProcessedLayer<'a, ()>,
+            break_layer: ProcessedLayer<'a, ()>,
+            fallthrough_layer: ProcessedLayer<'a, ()>,
+            source_layer: ProcessedLayer<'a, ()>,
+            parser_layers: &'a LayerMap<'b, ProcessedButton<'b>>,
+        }
+
+        fn process_layer<'mut_ref, 'map, 'source>(
+            processed_layers: &'mut_ref mut AHashMap<
+                String,
+                ProcessedLayer<'map, ProcessedButton<'map>>,
+            >,
+            state: &'map ProcessLayerImmutableContext<'map, 'source>,
+            layer_name: &str,
+        ) -> &'mut_ref ProcessedLayer<'map, ProcessedButton<'map>>
+        where
+            'source: 'map,
+        {
+            if let Some(layer) = match layer_name {
+                "default" => Some(&state.default_parent),
+                "fallthrough" => Some(&state.fallthrough_layer),
+                "break" => Some(&state.break_layer),
+                "source" => Some(&state.source_layer),
+                other => {
+                    if processed_layers.contains_key(other) {
+                        // we cannot just use if-let and return because non-lexical lifetimes are not yet
+                        // supported
+                        return processed_layers.get(other).unwrap();
+                    }
+
+                    None
+                }
+            } {
+                // TODO: make sure that the `()` does not get optimized out in memory?
+                // HACK: transmuting &ProcessedLayer<()> to &ProcessedLayer<ProcessedButton>
+                // This is safe because we know that state.{layers} are initialized with
+                // `None` for `aliases`.
+                // Because `aliases` is of type `Option<&T>` (simplified significantly), we can
+                // conclude that the `T` parameter has no effect on size or safety and can thus be
+                // modified freely
+                return unsafe { std::mem::transmute(layer) };
+            }
+
+            // TODO: entry insert layer if it doesnt exist
+            // TODO: if the layer does not exist, create it...
+            // TODO: if the layer exists, proceed...
+            //
+            // TODO: processing builtin layers should have a separate function?
+            // they should not be put into the processed_layers map
+            let layer = state.parser_layers.get(layer_name).unwrap();
+
+            let mut parents = layer.parent_name.iter();
+            let mut new_layer: ProcessedLayer<ProcessedButton> =
+                if let Some(parent) = parents.next() {
+                    process_layer(processed_layers, state, parent.as_str()).clone()
+                } else {
+                    // NOTE: this usage of `transmute` is justified earlier in the function
+                    unsafe {
+                        std::mem::transmute::<&ProcessedLayer<()>, &ProcessedLayer<ProcessedButton>>(
+                            &state.default_parent,
+                        )
+                    }
+                    .clone()
+                };
+
+            for parent_name in parents {
+                // do inheritance
+                let parent = process_layer(processed_layers, state, parent_name.as_str());
+                new_layer.inherit(parent);
+            }
+
+            for (key_name, key_value) in &layer.keys {
+                let index = state
+                    .source_layer
+                    .keys
+                    .binary_search_by_key(key_name, |k| k.value())
+                    .expect("Key name must exist in source layer");
+
+                *new_layer.keys.get_mut(index).unwrap() = LayerButton::new(unsafe {
+                    // HACK: (this is horrible) converting a temporary reference into a longer reference with transmute
+                    // this is "safe" because the underlying reference has a lifetime of 'source, which is longer than 'map
+                    std::mem::transmute(
+                        key_value
+                            .unwrap_processed_ref()
+                            .as_ref()
+                            .expect("Keys must be successfully processed")
+                            .as_ref(),
+                    )
+                });
+            }
+
+            let ref aliases = layer.aliases;
+            // HACK: (this is even worse than the other one) blindly converting into the type we want
+            // the error was "lifetime mismatch: data from `processed_layers` flows into `state`"
+            new_layer.aliases = Some(unsafe { std::mem::transmute(aliases) });
+
+            match processed_layers.entry(layer_name.to_owned()) {
+                Entry::Vacant(entry) => entry.insert(new_layer),
+                _ => unreachable!("Entry must be vacant"),
+            }
+        }
+
+        let process_layer_state = ProcessLayerImmutableContext {
+            default_parent,
+            break_layer,
+            fallthrough_layer,
+            source_layer,
+            parser_layers: &self.parser_data.layers,
+        };
+
+        for (layer_name, _) in &self.parser_data.layers {
+            let _ = process_layer(&mut processed_layers, &process_layer_state, layer_name);
+        }
+
         if self.has_errors() {
             bail!("errors")
         }
 
         print!("{}", configuration);
 
-        for (layer_name, layer) in self.parser_data.layers {
+        for (layer_name, layer) in processed_layers {
+            println!("layer: {}", layer_name);
+
             let alias_block = AliasBlock {
                 layer_name: Some(&layer_name),
-                aliases: layer.aliases,
+                aliases: layer.aliases.unwrap(),
             };
 
             print!("{}", alias_block);
+
+            println!("{{");
+
+            for value in layer.keys {
+                println!("\t{}", value.value())
+            }
+
+            println!("}}");
         }
 
         // bail because we do not have anything to return yet
