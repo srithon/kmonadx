@@ -66,13 +66,35 @@ impl<'a> Display for Configuration<'a> {
     }
 }
 
-struct AliasBlock<'a, 'b> {
-    // if defined in [aliases], then None
-    layer_name: Option<&'b str>,
-    aliases: &'b Map<'a, (LazyButton<'a, ProcessedButton<'a>>, AccessModifier)>,
+/// Trait unifying all AliasBlock aliases map rvalues.
+trait AsLazyButton<'a> {
+    fn as_lazy_button(&self) -> &LazyButton<'a, ProcessedButton<'a>>;
 }
 
-impl<'a, 'b> Display for AliasBlock<'a, 'b> {
+/// This implementation covers ParserLayer.aliases
+impl<'a> AsLazyButton<'a> for (LazyButton<'a, ProcessedButton<'a>>, AccessModifier) {
+    fn as_lazy_button(&self) -> &LazyButton<'a, ProcessedButton<'a>> {
+        &self.0
+    }
+}
+
+/// This implementation covers Data.global_aliases
+impl<'a> AsLazyButton<'a> for LazyButton<'a, ProcessedButton<'a>> {
+    fn as_lazy_button(&self) -> &Self {
+        self
+    }
+}
+
+struct AliasBlock<'a, 'b, T: 'a + AsLazyButton<'a>> {
+    // if defined in [aliases], then None
+    layer_name: Option<&'b str>,
+    aliases: &'b Map<'a, T>,
+}
+
+impl<'a, 'b, T> Display for AliasBlock<'a, 'b, T>
+where
+    T: AsLazyButton<'a>,
+{
     // TODO: move into this function so that the memory can be freed after use
     // in order to do this, we would need to change the code a bit and not use the Display trait
     // directly
@@ -85,7 +107,9 @@ impl<'a, 'b> Display for AliasBlock<'a, 'b> {
 
         write_section(
             "defalias",
-            self.aliases.iter().filter_map(|(name, (button, _))| {
+            self.aliases.iter().filter_map(|(name, into_lazy_button)| {
+                let button = into_lazy_button.as_lazy_button();
+
                 if !button.is_unprocessed() {
                     Some(format!(
                         "{}{} {}",
@@ -101,6 +125,18 @@ impl<'a, 'b> Display for AliasBlock<'a, 'b> {
                     None
                 }
             }),
+            formatter,
+        )
+    }
+}
+
+struct LayerTuple<'layer, 'string, T>(&'string str, ProcessedLayer<'layer, T>);
+
+impl<'layer, 'string, T> Display for LayerTuple<'layer, 'string, T> {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        write_section(
+            &format!("deflayer {}", self.0),
+            self.1.keys.iter().map(|button| button.value()),
             formatter,
         )
     }
@@ -733,8 +769,18 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
         print!("{}", configuration);
 
-        for (layer_name, layer) in processed_layers {
-            println!("layer: {}", layer_name);
+        // write [aliases] table
+        {
+            let base_alias_block = AliasBlock {
+                layer_name: None,
+                aliases: &self.parser_data.global_aliases
+            };
+
+            print!("{}", base_alias_block);
+        }
+
+        fn write_layer<'a>(layer_name: &str, layer: ProcessedLayer<'a, ProcessedButton<'a>>) {
+            // println!("layer: {}", layer_name);
 
             let alias_block = AliasBlock {
                 layer_name: Some(&layer_name),
@@ -743,13 +789,16 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
             print!("{}", alias_block);
 
-            println!("{{");
+            print!("{}", LayerTuple(&layer_name, layer));
+        }
 
-            for value in layer.keys {
-                println!("\t{}", value.value())
-            }
+        let default_layer = processed_layers
+            .remove(configuration.starting_layer)
+            .expect("starting layer must exist");
+        write_layer(configuration.starting_layer, default_layer);
 
-            println!("}}");
+        for (layer_name, layer) in processed_layers {
+            write_layer(&layer_name, layer)
         }
 
         // bail because we do not have anything to return yet
