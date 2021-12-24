@@ -7,7 +7,7 @@ use core::hash::Hash;
 
 type HashMap<L, R> = BiHashMap<L, R, RandomState, RandomState>;
 
-type NodeIndex = GraphNodeIndex<DefaultIx>;
+pub type NodeIndex = GraphNodeIndex<DefaultIx>;
 
 /// A directed graph which maintains connections between vertices. Each vertex has an associated
 /// key and value. Users may look up vertices by the key or by the index within the graph, which is
