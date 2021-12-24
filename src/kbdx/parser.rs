@@ -10,6 +10,8 @@ use std::cell::{Ref, RefCell};
 use super::diagnostic::*;
 use super::keys::normalize_keycode;
 
+use super::graph::{DependencyGraph, NodeIndex};
+
 #[derive(Parser)]
 #[grammar = "kbdx/kbdx.pest"]
 /// Struct implementing the Pest parser
@@ -118,7 +120,7 @@ pub type LayerMap<'a, T> = AHashMap<String, Layer<'a, T>>;
 #[derive(Debug)]
 pub struct Layer<'a, T> {
     pub parent_name: Vec<Pair<'a>>,
-    pub aliases: Map<'a, (LazyButton<'a, T>, AccessModifier)>,
+    pub aliases: Map<'a, (NodeIndex, AccessModifier)>,
     pub keys: LazyButtonMap<'a, T>,
 }
 
@@ -135,7 +137,7 @@ impl<'a, T> Default for Layer<'a, T> {
 #[derive(Debug)]
 pub struct Data<'a, T> {
     pub configuration: PairMap<'a>,
-    pub global_aliases: LazyButtonMap<'a, T>,
+    pub global_aliases: Map<'a, NodeIndex>,
     pub layers: LayerMap<'a, T>,
 }
 
@@ -196,7 +198,9 @@ impl<'a, 'b> Parser<'a, 'b> {
     }
 
     /// Parses the input text and returns it in a more structured format
-    pub fn parse_string<T>(&mut self) -> color_eyre::Result<Data<'a, T>> {
+    pub fn parse_string<T>(
+        &mut self,
+    ) -> color_eyre::Result<(Data<'a, T>, DependencyGraph<String, LazyButton<'a, T>>)> {
         let pairs = self.parse_string_raw()?;
 
         let mut pairs_iter = pairs.into_iter();
@@ -205,11 +209,13 @@ impl<'a, 'b> Parser<'a, 'b> {
         let configuration_pair = pairs_iter.next().unwrap();
         let config_map = create_pair_map(configuration_pair);
 
-        let mut aliases = LazyButtonMap::default();
+        let mut aliases = Map::default();
         let mut layers = LayerMap::default();
 
         let mut layer_stack: StringStack = StringStack::new();
         let mut current_layer: Option<&mut Layer<'a, T>> = None;
+
+        let mut alias_graph = DependencyGraph::new();
 
         #[derive(Debug)]
         enum LayerContext {
@@ -306,11 +312,14 @@ impl<'a, 'b> Parser<'a, 'b> {
 
                     match inner_property.as_rule() {
                         R::parent_assignment => {
+                            // TODO: handle lists as well
+                            // see the pest grammar for details
                             let parent_name = inner_property
                                 .into_inner()
                                 .next()
                                 .expect("Parent name must contain a layer_name");
 
+                            // TODO: check if layer_name or layer_name_list
                             (&mut current_layer)
                                 .as_mut()
                                 .expect("Current layer must exist")
@@ -382,21 +391,29 @@ impl<'a, 'b> Parser<'a, 'b> {
 
                         match layer_context {
                             L::Aliases => {
-                                aliases.insert(assignment.0, assignment.1);
+                                let index =
+                                    alias_graph.add_node(assignment.0.to_owned(), assignment.1);
+
+                                aliases.insert(assignment.0, index);
                             }
-                            L::Public => {
+                            access @ (L::Public | L::Private) => {
+                                let index = alias_graph.add_node(
+                                    format!("{}.{}", layer_stack.as_str(), assignment.0),
+                                    assignment.1,
+                                );
+
+                                // MISTAKE: reversed the order of matches! args
+                                let access = if matches!(access, L::Public) {
+                                    AccessModifier::Public
+                                } else {
+                                    AccessModifier::Private
+                                };
+
                                 (&mut current_layer)
                                     .as_mut()
                                     .expect("Current layer must exist")
                                     .aliases
-                                    .insert(assignment.0, (assignment.1, AccessModifier::Public));
-                            }
-                            L::Private => {
-                                (&mut current_layer)
-                                    .as_mut()
-                                    .expect("Current layer must exist")
-                                    .aliases
-                                    .insert(assignment.0, (assignment.1, AccessModifier::Private));
+                                    .insert(assignment.0, (index, access));
                             }
                             _ => unreachable!(),
                         }
@@ -407,11 +424,14 @@ impl<'a, 'b> Parser<'a, 'b> {
             }
         }
 
-        Ok(Data {
-            configuration: config_map,
-            layers,
-            global_aliases: aliases,
-        })
+        Ok((
+            Data {
+                configuration: config_map,
+                layers,
+                global_aliases: aliases,
+            },
+            alias_graph,
+        ))
     }
 }
 
