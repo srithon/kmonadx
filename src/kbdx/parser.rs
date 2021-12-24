@@ -62,7 +62,10 @@ impl<'a, T> LazyButton<'a, T> {
                 // we need to do this because self.process_button_pair may return an Err, in which
                 // case we would not have a valid value to write to *button, and the `pair` within
                 // the LazyButton would be invalid memory
-                let pair = unsafe { std::ptr::read(pair) };
+                // MISTAKE: thought that doing a bitwise copy was equivalent to a clone.
+                // OPTIMIZE: don't clone all the time since you only need it for errors
+                // the reason this didn't work is because pair's internal string was being freed.
+                let pair = pair.clone();
 
                 LazyButtonInternal::Processed(f(pair))
             }
