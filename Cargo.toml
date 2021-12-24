@@ -13,3 +13,5 @@ ahash = "0.7"
 color-eyre = { version = "0.5", default-features = false }
 codespan-reporting = "0.11"
 phf = { version = "0.9", features = ["macros"] }
+petgraph = "0.6"
+bimap = "0.6.1"
