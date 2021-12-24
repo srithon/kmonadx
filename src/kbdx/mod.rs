@@ -3,3 +3,4 @@ pub mod compiler;
 pub mod diagnostic;
 pub mod keys;
 pub mod layer;
+pub mod graph;
