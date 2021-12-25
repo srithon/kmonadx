@@ -33,6 +33,22 @@ impl StringStack {
         }
     }
 
+    /// Combines the last two segments on the stack. Returns true if there were two segments to
+    /// combine, false otherwise
+    pub fn merge_last(&mut self) -> bool {
+        let num_segments = self.num_segments();
+
+        if num_segments >= 2 {
+            // want the last segment to be continuous, so we remove the marker indicating the start
+            // of the last segment. by doing so, we add the contents of that segment to what used
+            // to be the second-to-last segment.
+            self.positions.remove(num_segments - 1);
+            true
+        } else {
+            false
+        }
+    }
+
     /// Clears the stack
     pub fn clear(&mut self) {
         self.string.clear()
