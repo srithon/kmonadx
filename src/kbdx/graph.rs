@@ -56,6 +56,14 @@ impl<V> DependencyGraph<V> {
             .expect("The node must exist in the graph.")
     }
 
+    pub fn lookup_key_by_index(&self, index: &NodeIndex) -> Option<&String> {
+        self.lookup_table.get_by_right(index)
+    }
+
+    pub fn lookup_index_by_key(&self, key: impl AsRef<str>) -> Option<&NodeIndex> {
+        self.lookup_table.get_by_left(key.as_ref())
+    }
+
     pub fn contains_node(&self, key: impl AsRef<str>) -> bool {
         self.lookup_table.contains_left(key.as_ref())
     }
