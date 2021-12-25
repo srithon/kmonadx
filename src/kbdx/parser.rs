@@ -227,6 +227,8 @@ impl<'a, 'b> Parser<'a, 'b> {
 
         let mut layer_context = None;
 
+        let mut current_header_depth = 0;
+
         for pair in pairs_iter {
             use Rule as R;
 
@@ -238,8 +240,10 @@ impl<'a, 'b> Parser<'a, 'b> {
                     let header_depth = header_text.chars().take_while(|&c| c == '[').count();
 
                     // we are going deeper in the current layer
-                    let deeper_in_layer = header_depth > layer_stack.num_segments()
-                        && layer_stack.num_segments() != 0;
+                    // MISTAKE: layer_stack.num_segments is not equal to current header depth;
+                    // could have [scroll.arrow-keys], for example
+                    let deeper_in_layer =
+                        header_depth > current_header_depth && current_header_depth > 1;
 
                     if !deeper_in_layer {
                         layer_context = None;
@@ -255,7 +259,7 @@ impl<'a, 'b> Parser<'a, 'b> {
                     // because of the way we are handling layers vs layer contexts, this also
                     // handles the error where a user tries to nest [[[private]]] inside of
                     // [[public]]
-                    else if header_depth > layer_stack.num_segments() + 1 {
+                    else if header_depth > current_header_depth + 1 {
                         panic!("Header is nested too far!")
                     }
 
@@ -267,7 +271,7 @@ impl<'a, 'b> Parser<'a, 'b> {
                     assert!(matches!(table_name.as_rule(), R::table_name));
 
                     let _ = layer_context.take();
-                    for identifier in table_name.into_inner() {
+                    for (element_index, identifier) in table_name.into_inner().enumerate() {
                         assert!(layer_context.is_none());
 
                         match identifier.as_rule() {
@@ -287,7 +291,10 @@ impl<'a, 'b> Parser<'a, 'b> {
                                 if layer_stack.num_segments() == 0 {
                                     layer_stack.push(identifier.as_str());
                                 } else {
-                                    layer_stack.push(&format!(".{}", identifier.as_str()))
+                                    layer_stack.push(&format!(".{}", identifier.as_str()));
+                                    if element_index > 0 {
+                                        assert!(layer_stack.merge_last());
+                                    }
                                 }
 
                                 current_layer = None;
@@ -300,6 +307,8 @@ impl<'a, 'b> Parser<'a, 'b> {
                             _ => unreachable!(),
                         }
                     }
+
+                    current_header_depth = header_depth;
                 }
                 R::header_aliases => {
                     layer_stack.clear();
