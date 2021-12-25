@@ -200,7 +200,7 @@ impl<'a, 'b> Parser<'a, 'b> {
     /// Parses the input text and returns it in a more structured format
     pub fn parse_string<T>(
         &mut self,
-    ) -> color_eyre::Result<(Data<'a, T>, DependencyGraph<String, LazyButton<'a, T>>)> {
+    ) -> color_eyre::Result<(Data<'a, T>, DependencyGraph<LazyButton<'a, T>>)> {
         let pairs = self.parse_string_raw()?;
 
         let mut pairs_iter = pairs.into_iter();
