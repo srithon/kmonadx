@@ -75,8 +75,8 @@ impl<V> DependencyGraph<V> {
             if let Some(&dependency_index) = self.lookup_table.get_by_left(dependency_key.as_ref())
             {
                 self.get_exclusive_graph_reference().add_edge(
-                    dependent_index,
                     dependency_index,
+                    dependent_index,
                     (),
                 );
             }
@@ -87,7 +87,7 @@ impl<V> DependencyGraph<V> {
     /// Panics if either `dependent_key` or `dependent_key` is not already in the graph
     pub fn add_dep_by_index(&self, dependent_index: NodeIndex, dependency_index: NodeIndex) {
         self.get_exclusive_graph_reference()
-            .add_edge(dependent_index, dependency_index, ());
+            .add_edge(dependency_index, dependent_index, ());
     }
 
     /// Iterates over the nodes in the graph such that nodes are processed after the nodes they
