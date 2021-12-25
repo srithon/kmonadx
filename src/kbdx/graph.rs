@@ -3,7 +3,7 @@ use bimap::hash::BiHashMap;
 use petgraph::algo::{toposort, Cycle};
 use petgraph::stable_graph::{DefaultIx, NodeIndex as GraphNodeIndex, StableDiGraph};
 
-use core::hash::Hash;
+use std::cell::UnsafeCell;
 
 type HashMap<L, R> = BiHashMap<L, R, RandomState, RandomState>;
 
@@ -13,73 +13,90 @@ pub type NodeIndex = GraphNodeIndex<DefaultIx>;
 /// key and value. Users may look up vertices by the key or by the index within the graph, which is
 /// exposed by the add_node function.
 #[derive(Debug)]
-pub struct DependencyGraph<K: Hash + Eq, V> {
+pub struct DependencyGraph<V> {
     // store V nodes directly in the graph
-    graph: StableDiGraph<V, ()>,
+    graph: UnsafeCell<StableDiGraph<V, ()>>,
     // maps some key type K to indices within the graph
-    lookup_table: HashMap<K, NodeIndex>,
+    lookup_table: HashMap<String, NodeIndex>,
 }
 
-impl<K: Hash + Eq, V> DependencyGraph<K, V> {
-    pub fn new() -> DependencyGraph<K, V> {
+impl<V> DependencyGraph<V> {
+    pub fn new() -> DependencyGraph<V> {
         DependencyGraph {
-            graph: StableDiGraph::new(),
+            graph: UnsafeCell::new(StableDiGraph::new()),
             lookup_table: HashMap::default(),
         }
     }
 
-    pub fn add_node(&mut self, key: K, value: V) -> NodeIndex {
-        let index = self.graph.add_node(value);
+    pub fn add_node(&mut self, key: String, value: V) -> NodeIndex {
+        let index = self.graph.get_mut().add_node(value);
         self.lookup_table.insert(key, index);
+
         index
     }
 
-    pub fn lookup_node_by_key(&self, key: &K) -> Option<&V> {
+    fn get_shared_graph_reference(&self) -> &StableDiGraph<V, ()> {
+        unsafe { &*self.graph.get() }
+    }
+
+    fn get_exclusive_graph_reference(&self) -> &mut StableDiGraph<V, ()> {
+        unsafe { &mut *self.graph.get() }
+    }
+
+    pub fn lookup_node_by_key(&self, key: impl AsRef<str>) -> Option<&V> {
         self.lookup_table
-            .get_by_left(key)
-            .map(|&index| self.graph.node_weight(index))
+            .get_by_left(key.as_ref())
+            .map(|&index| self.get_shared_graph_reference().node_weight(index))
             .flatten()
     }
 
     pub fn lookup_node_by_index(&self, index: NodeIndex) -> &V {
-        self.graph
+        self.get_shared_graph_reference()
             .node_weight(index)
             .expect("The node must exist in the graph.")
     }
 
-    pub fn contains_node(&self, key: &K) -> bool {
-        self.lookup_table.contains_left(key)
+    pub fn contains_node(&self, key: impl AsRef<str>) -> bool {
+        self.lookup_table.contains_left(key.as_ref())
     }
 
     /// Adds a dependency from `dependent_key` to `dependency_key`.
     /// Panics if either `dependent_key` or `dependent_key` is not already in the graph
-    pub fn add_dep_by_key(&mut self, dependent_key: &K, dependency_key: &K) {
-        if let Some(&dependent_index) = self.lookup_table.get_by_left(dependent_key) {
-            if let Some(&dependency_index) = self.lookup_table.get_by_left(dependency_key) {
-                self.graph.add_edge(dependent_index, dependency_index, ());
+    pub fn add_dep_by_key(&self, dependent_key: impl AsRef<str>, dependency_key: impl AsRef<str>) {
+        if let Some(&dependent_index) = self.lookup_table.get_by_left(dependent_key.as_ref()) {
+            if let Some(&dependency_index) = self.lookup_table.get_by_left(dependency_key.as_ref())
+            {
+                self.get_exclusive_graph_reference().add_edge(
+                    dependent_index,
+                    dependency_index,
+                    (),
+                );
             }
         }
     }
 
     /// Adds a dependency from `dependent_key` to `dependency_key`.
     /// Panics if either `dependent_key` or `dependent_key` is not already in the graph
-    pub fn add_dep_by_index(&mut self, dependent_index: NodeIndex, dependency_index: NodeIndex) {
-        self.graph.add_edge(dependent_index, dependency_index, ());
+    pub fn add_dep_by_index(&self, dependent_index: NodeIndex, dependency_index: NodeIndex) {
+        self.get_exclusive_graph_reference()
+            .add_edge(dependent_index, dependency_index, ());
     }
 
     /// Iterates over the nodes in the graph such that nodes are processed after the nodes they
     /// depend on. If there is a cycle in the dependencies, returns the error.
     /// TODO: do more with the Err
-    pub fn toposort(&self) -> Result<impl Iterator<Item = (&K, &V)>, Cycle<NodeIndex>> {
-        toposort(&self.graph, None).map(move |list| {
+    pub fn toposort(&self) -> Result<impl Iterator<Item = (&String, &V)>, Cycle<NodeIndex>> {
+        toposort(self.get_shared_graph_reference(), None).map(move |list| {
             list.into_iter().map(move |index| {
+                let node_weight = self
+                    .get_shared_graph_reference()
+                    .node_weight(index)
+                    .expect("Cannot have None's in the graph");
                 (
                     self.lookup_table
                         .get_by_right(&index)
-                        .expect("Index must be in the table"),
-                    self.graph
-                        .node_weight(index)
-                        .expect("Cannot have None's in the graph"),
+                        .expect(&format!("Index {:?} must be in the table", index)),
+                    node_weight,
                 )
             })
         })
