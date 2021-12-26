@@ -137,6 +137,7 @@ impl<'layer, T> Display for SourceLayer<'layer, T> {
     }
 }
 
+/// Contains the intermediate state of the compiler.
 pub struct Compiler<'a, 'b> {
     parser_data: Data<'a, ProcessedButton<'a>>,
     alias_dependency_graph: DependencyGraph<LazyButton<'a, ProcessedButton<'a>>>,
