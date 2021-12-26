@@ -41,8 +41,8 @@ impl<'a> LayerButton<'a> {
         Self::new_inherited("_")
     }
 
-    /// Create a `break` button
-    pub const fn break_button() -> LayerButton<'a> {
+    /// Create a `block` button
+    pub const fn block_button() -> LayerButton<'a> {
         Self::new_inherited("XX")
     }
 }
