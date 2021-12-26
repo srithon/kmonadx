@@ -130,6 +130,7 @@ where
     }
 }
 
+/// Struct containing the name of a layer and the layer.
 struct LayerTuple<'layer, 'string, T>(&'string str, ProcessedLayer<'layer, T>);
 
 impl<'layer, 'string, T> Display for LayerTuple<'layer, 'string, T> {
