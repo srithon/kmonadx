@@ -328,12 +328,29 @@ impl<'a, 'b> Parser<'a, 'b> {
                                 .next()
                                 .expect("Parent name must contain a layer_name");
 
+                            macro_rules! add_parent_name {
+                                ($parent_name:ident) => {{
+                                    (&mut current_layer)
+                                        .as_mut()
+                                        .expect("Current layer must exist")
+                                        .parent_name
+                                        .push($parent_name)
+                                }};
+                            }
+
                             // TODO: check if layer_name or layer_name_list
-                            (&mut current_layer)
-                                .as_mut()
-                                .expect("Current layer must exist")
-                                .parent_name
-                                .push(parent_name)
+                            match parent_name.as_rule() {
+                                R::identifier => {
+                                    add_parent_name!(parent_name);
+                                }
+                                R::layer_name_list => {
+                                    for parent_name in parent_name.into_inner() {
+                                        assert!(matches!(parent_name.as_rule(), R::identifier));
+                                        add_parent_name!(parent_name);
+                                    }
+                                }
+                                x => unreachable!("Cannot have {:?} within parent_assignment", x),
+                            }
                         }
                         _ => unreachable!(
                             "Invalid property assignment: '{:#?}'",
