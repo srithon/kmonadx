@@ -142,6 +142,20 @@ impl<'layer, 'string, T> Display for LayerTuple<'layer, 'string, T> {
     }
 }
 
+/// Struct containing the source layer. This is essentially the same as
+/// LayerTuple, except it yields a defsrc instead of a deflayer block.
+struct SourceLayer<'layer, T>(ProcessedLayer<'layer, T>);
+
+impl<'layer, T> Display for SourceLayer<'layer, T> {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        write_section(
+            "defsrc",
+            self.0.keys.iter().map(|button| button.value()),
+            formatter,
+        )
+    }
+}
+
 pub struct Compiler<'a, 'b> {
     parser_data: Data<'a, ProcessedButton<'a>>,
     file_diagnostics: UnsafeCell<FileDiagnostics<'a, 'b>>,
