@@ -75,7 +75,7 @@ impl<'a, T> Layer<'a, T> {
     /// Inherit `keys` from `parent` according to the following rules:
     ///
     /// `parent::key` and `self::key` are inherited:
-    /// `self::key` = `parent::key`
+    /// nothing happens
     ///
     /// `self::key` is inherited but `parent::key` is not:
     /// `self::key` = `parent::key`
@@ -84,12 +84,10 @@ impl<'a, T> Layer<'a, T> {
     /// nothing happens
     pub fn inherit(&mut self, parent: &Self) {
         for (old_key, parent_key) in self.keys.iter_mut().zip(parent.keys.iter()) {
-            if parent_key.is_inherited() {
+            if !parent_key.is_inherited() {
                 if old_key.is_inherited() {
-                    old_key.value = parent_key.value;
+                    *old_key = *parent_key;
                 }
-            } else {
-                *old_key = *parent_key
             }
         }
     }
