@@ -558,7 +558,13 @@ impl<'a, 'b> Compiler<'a, 'b> {
             let button_context = ButtonContext::Layer(&layer_name);
 
             for (key_name, key_value) in &layer.keys {
-                let _ = self.process_lazy_button(&key_value, &button_context);
+                // MISTAKE: was giving self.process_lazy_button the name of the key being mapped;
+                // instead, should treat the keys as unnamed buttons
+                if key_value.is_unprocessed() {
+                    key_value
+                        .process(|pair| self.process_button_pair(None, pair, &button_context))?;
+                }
+
                 used_keys.insert(key_name);
             }
 
