@@ -415,18 +415,42 @@ impl<'a, 'b> Parser<'a, 'b> {
                         let assignment = try_parse_assignment_lazy_button_rvalue(pair)
                             .expect("Assignments must be parseable");
 
+                        macro_rules! test_redefined_alias {
+                            ($optional_overwritten_index:ident) => {{
+                                if let Some(overwritten_index) = $optional_overwritten_index {
+                                    let original_definition =
+                                        alias_graph.lookup_node_by_index(overwritten_index);
+
+                                    self.file_diagnostics
+                                        .error("alias redefined")
+                                        .add_message(Message::from_pest_span(
+                                            &span,
+                                            "redefinition was here",
+                                        ))
+                                        .add_message(Message::from_pest_span(
+                                            &original_definition.unwrap_unprocessed_ref().as_span(),
+                                            "originally defined here",
+                                        ));
+                                }
+                            }};
+                        }
+
                         match layer_context {
                             L::Aliases => {
-                                let index =
+                                let (index, optional_overwritten_index) =
                                     alias_graph.add_node(assignment.0.to_owned(), assignment.1);
+
+                                test_redefined_alias!(optional_overwritten_index);
 
                                 aliases.insert(assignment.0, index);
                             }
                             access @ (L::Public | L::Private) => {
-                                let index = alias_graph.add_node(
+                                let (index, optional_overwritten_index) = alias_graph.add_node(
                                     format!("{}.{}", layer_stack.as_str(), assignment.0),
                                     assignment.1,
                                 );
+
+                                test_redefined_alias!(optional_overwritten_index);
 
                                 // MISTAKE: reversed the order of matches! args
                                 let access = if matches!(access, L::Public) {
