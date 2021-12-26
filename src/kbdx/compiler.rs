@@ -564,7 +564,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
             for parent_name in &layer.parent_name {
                 match parent_name.as_str() {
-                    "default" | "fallthrough" | "break" | "source" => (),
+                    "default" | "fallthrough" | "block" | "source" => (),
                     x => {
                         if self.parser_data.layers.get(x).is_none() {
                             self.error("undefined parent layer").add_message(
@@ -625,10 +625,10 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 .collect::<Vec<_>>(),
             None,
         );
-        let break_layer = ProcessedLayer::new(
+        let block_layer = ProcessedLayer::new(
             used_keys
                 .iter()
-                .map(|_| LayerButton::break_button())
+                .map(|_| LayerButton::block_button())
                 .collect::<Vec<_>>(),
             None,
         );
@@ -644,13 +644,13 @@ impl<'a, 'b> Compiler<'a, 'b> {
             if configuration.fallthrough {
                 fallthrough_layer.clone()
             } else {
-                break_layer.clone()
+                block_layer.clone()
             }
         };
 
         struct ProcessLayerImmutableContext<'a, 'b: 'a> {
             default_parent: ProcessedLayer<'a, ()>,
-            break_layer: ProcessedLayer<'a, ()>,
+            block_layer: ProcessedLayer<'a, ()>,
             fallthrough_layer: ProcessedLayer<'a, ()>,
             source_layer: ProcessedLayer<'a, ()>,
             parser_layers: &'a LayerMap<'b, ProcessedButton<'b>>,
@@ -670,7 +670,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
             if let Some(layer) = match layer_name {
                 "default" => Some(&state.default_parent),
                 "fallthrough" => Some(&state.fallthrough_layer),
-                "break" => Some(&state.break_layer),
+                "block" => Some(&state.block_layer),
                 "source" => Some(&state.source_layer),
                 other => {
                     if processed_layers.contains_key(other) {
@@ -753,7 +753,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
         let process_layer_state = ProcessLayerImmutableContext {
             default_parent,
-            break_layer,
+            block_layer,
             fallthrough_layer,
             source_layer,
             parser_layers: &self.parser_data.layers,
