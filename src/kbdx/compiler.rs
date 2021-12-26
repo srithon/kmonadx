@@ -1,7 +1,7 @@
 use color_eyre::eyre::{bail, eyre};
 
-use std::fmt::{self, Display, Formatter};
 use std::fmt::Write;
+use std::fmt::{self, Display, Formatter};
 
 use std::borrow::Cow;
 use std::cell::UnsafeCell;
@@ -883,18 +883,19 @@ impl<'a, 'b> Compiler<'a, 'b> {
             let layer = state.parser_layers.get(layer_name).unwrap();
 
             let mut parents = layer.parent_name.iter();
-            let mut new_layer: ProcessedLayer<ProcessedButton> =
-                if let Some(parent) = parents.next() {
-                    process_layer(processed_layers, state, parent.as_str()).clone()
-                } else {
-                    // NOTE: this usage of `transmute` is justified earlier in the function
-                    unsafe {
-                        std::mem::transmute::<&ProcessedLayer<()>, &ProcessedLayer<ProcessedButton>>(
-                            &state.default_parent,
-                        )
-                    }
-                    .clone()
-                };
+            let mut new_layer: ProcessedLayer<ProcessedButton> = if let Some(parent) =
+                parents.next()
+            {
+                process_layer(processed_layers, state, parent.as_str()).clone()
+            } else {
+                // NOTE: this usage of `transmute` is justified earlier in the function
+                unsafe {
+                    std::mem::transmute::<&ProcessedLayer<()>, &ProcessedLayer<ProcessedButton>>(
+                        &state.default_parent,
+                    )
+                }
+                .clone()
+            };
 
             for parent_name in parents {
                 // do inheritance
@@ -952,7 +953,8 @@ impl<'a, 'b> Compiler<'a, 'b> {
         // 20KB buffer
         let mut string_buffer = String::with_capacity(20 * 1024);
 
-        write!(string_buffer, "{}", configuration).expect("Writing to string buffer must not error");
+        write!(string_buffer, "{}", configuration)
+            .expect("Writing to string buffer must not error");
 
         // write [aliases] table
         // print out all edges in graph
@@ -966,16 +968,26 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
         let write_layer = |layer_name: &str, layer, string_buffer: &mut String| {
             // println!("layer: {}", layer_name);
-            write!(string_buffer, "{}", LayerTuple(&layer_name, layer)).expect("Writing to string buffer must not error");
+            write!(string_buffer, "{}", LayerTuple(&layer_name, layer))
+                .expect("Writing to string buffer must not error");
         };
 
         let default_layer = processed_layers
             .remove(configuration.starting_layer)
             .expect("starting layer must exist");
 
-        write!(string_buffer, "{}", SourceLayer(process_layer_state.source_layer.clone())).expect("Writing to string buffer must not error");
+        write!(
+            string_buffer,
+            "{}",
+            SourceLayer(process_layer_state.source_layer.clone())
+        )
+        .expect("Writing to string buffer must not error");
 
-        write_layer(configuration.starting_layer, default_layer, &mut string_buffer);
+        write_layer(
+            configuration.starting_layer,
+            default_layer,
+            &mut string_buffer,
+        );
 
         for (layer_name, layer) in processed_layers {
             write_layer(&layer_name, layer, &mut string_buffer)
