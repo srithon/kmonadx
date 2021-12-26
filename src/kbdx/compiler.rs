@@ -9,9 +9,7 @@ use std::cell::UnsafeCell;
 use super::diagnostic::{Diagnostic, FileDiagnostics, Message};
 use super::keys::normalize_keycode;
 use super::layer::{Layer as ProcessedLayer, LayerButton};
-use super::parser::{
-    AccessModifier, Data, Layer as ParserLayer, LayerMap, LazyButton, Map, Pair, Parser, Rule,
-};
+use super::parser::{AccessModifier, Data, LayerMap, LazyButton, Pair, Parser, Rule};
 
 use super::graph::{DependencyGraph, NodeIndex};
 use ahash::AHashMap;
