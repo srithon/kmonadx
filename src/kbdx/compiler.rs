@@ -19,6 +19,7 @@ use std::collections::{hash_map::Entry, BTreeSet};
 const INDENT_LEVEL: &'static str = "  ";
 
 /// The context in which a button is defined
+#[derive(Debug)]
 enum ButtonContext<'a> {
     /// Button is defined within an [aliases] block
     Aliases,
