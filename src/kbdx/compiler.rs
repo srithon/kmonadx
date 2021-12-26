@@ -79,67 +79,34 @@ impl<'a> Display for Configuration<'a> {
     }
 }
 
-/// Trait unifying all AliasBlock aliases map rvalues.
-trait AsLazyButton<'a> {
-    fn as_lazy_button(&self) -> &LazyButton<'a, ProcessedButton<'a>>;
-}
-
-/// This implementation covers ParserLayer.aliases
-impl<'a> AsLazyButton<'a> for (LazyButton<'a, ProcessedButton<'a>>, AccessModifier) {
-    fn as_lazy_button(&self) -> &LazyButton<'a, ProcessedButton<'a>> {
-        &self.0
-    }
-}
-
-/// This implementation covers Data.global_aliases
-impl<'a> AsLazyButton<'a> for LazyButton<'a, ProcessedButton<'a>> {
-    fn as_lazy_button(&self) -> &Self {
-        self
-    }
-}
-
-struct AliasBlock<'a, 'b, T: 'a + AsLazyButton<'a>> {
+struct AliasBlock<'a> {
     // if defined in [aliases], then None
-    layer_name: Option<&'b str>,
-    aliases: &'b Map<'a, T>,
+    dependency_graph: DependencyGraph<LazyButton<'a, ProcessedButton<'a>>>,
 }
 
-impl<'a, 'b, T> Display for AliasBlock<'a, 'b, T>
-where
-    T: AsLazyButton<'a>,
-{
+impl<'a> Display for AliasBlock<'a> {
     // TODO: move into this function so that the memory can be freed after use
     // in order to do this, we would need to change the code a bit and not use the Display trait
     // directly
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        let layer_prefix = if let Some(prefix) = self.layer_name {
-            format!("{}.", prefix)
-        } else {
-            String::new()
-        };
+        // TODO: handle toposort errors properly
+        let sorted_aliases = self
+            .dependency_graph
+            .toposort()
+            .expect("There must not be any cycles in the dependency graph")
+            .filter(|(_, button)| !button.is_unprocessed())
+            .map(|(name, button)| {
+                format!(
+                    "{} {}",
+                    name,
+                    button
+                        .unwrap_processed_ref()
+                        .as_ref()
+                        .expect("All aliases must be successfully compiled"),
+                )
+            });
 
-        write_section(
-            "defalias",
-            self.aliases.iter().filter_map(|(name, into_lazy_button)| {
-                let button = into_lazy_button.as_lazy_button();
-
-                if !button.is_unprocessed() {
-                    Some(format!(
-                        "{}{} {}",
-                        layer_prefix,
-                        name,
-                        button
-                            .unwrap_processed_ref()
-                            .as_ref()
-                            .expect("All aliases must be successfully compiled")
-                            .as_ref()
-                    ))
-                } else {
-                    None
-                }
-            }),
-            formatter,
-        )
+        write_section("defalias", sorted_aliases, formatter)
     }
 }
 
