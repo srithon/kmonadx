@@ -14,6 +14,17 @@ macro_rules! alias_phf_map_helper {
 }
 
 static ALIASES: phf::Map<&'static str, &'static str> = alias_phf_map_helper! {
+    "0" => "0",
+    "1" => "1",
+    "2" => "2",
+    "3" => "3",
+    "4" => "4",
+    "5" => "5",
+    "6" => "6",
+    "7" => "7",
+    "8" => "8",
+    "9" => "9",
+
     "enter", "ret", "return", "ent" => "Enter",
     "minus", "min", "-" => "Minus",
     "equal", "eql", "=" => "Equal",
