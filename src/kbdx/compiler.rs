@@ -1,6 +1,7 @@
 use color_eyre::eyre::{bail, eyre};
 
 use std::fmt::{self, Display, Formatter};
+use std::fmt::Write;
 
 use std::borrow::Cow;
 use std::cell::UnsafeCell;
@@ -948,42 +949,39 @@ impl<'a, 'b> Compiler<'a, 'b> {
             bail!("errors")
         }
 
-        print!("{}", configuration);
+        // 20KB buffer
+        let mut string_buffer = String::with_capacity(20 * 1024);
+
+        write!(string_buffer, "{}", configuration).expect("Writing to string buffer must not error");
 
         // write [aliases] table
-        {
-            let base_alias_block = AliasBlock {
-                layer_name: None,
-                aliases: &self.parser_data.global_aliases
-            };
+        // print out all edges in graph
+        // self.alias_dependency_graph.print_all_connections();
 
-            print!("{}", base_alias_block);
-        }
+        let alias_block = AliasBlock {
+            dependency_graph: self.alias_dependency_graph,
+        };
 
-        fn write_layer<'a>(layer_name: &str, layer: ProcessedLayer<'a, ProcessedButton<'a>>) {
+        write!(string_buffer, "{}", alias_block).expect("Writing to string buffer must not error");
+
+        let write_layer = |layer_name: &str, layer, string_buffer: &mut String| {
             // println!("layer: {}", layer_name);
-
-            let alias_block = AliasBlock {
-                layer_name: Some(&layer_name),
-                aliases: layer.aliases.unwrap(),
-            };
-
-            print!("{}", alias_block);
-
-            print!("{}", LayerTuple(&layer_name, layer));
-        }
+            write!(string_buffer, "{}", LayerTuple(&layer_name, layer)).expect("Writing to string buffer must not error");
+        };
 
         let default_layer = processed_layers
             .remove(configuration.starting_layer)
             .expect("starting layer must exist");
-        write_layer(configuration.starting_layer, default_layer);
+
+        write!(string_buffer, "{}", SourceLayer(process_layer_state.source_layer.clone())).expect("Writing to string buffer must not error");
+
+        write_layer(configuration.starting_layer, default_layer, &mut string_buffer);
 
         for (layer_name, layer) in processed_layers {
-            write_layer(&layer_name, layer)
+            write_layer(&layer_name, layer, &mut string_buffer)
         }
 
-        // bail because we do not have anything to return yet
-        bail!("unfinished implementation")
+        Ok(string_buffer)
     }
 }
 
