@@ -719,7 +719,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
     pub fn compile_string(mut self) -> color_eyre::Result<String> {
         // read configuration into Configuration struct
         let configuration = self.try_parse_configuration()?;
-        println!("Configuration: {:#?}", configuration);
+        eprintln!("Configuration: {:#?}", configuration);
 
         // we use used_keys to derive the source layer
         let mut used_keys = BTreeSet::default();
@@ -798,7 +798,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
             }
         }
 
-        println!("{:#?}", used_keys);
+        eprintln!("{:#?}", used_keys);
 
         let fallthrough_layer = ProcessedLayer::new(
             used_keys
