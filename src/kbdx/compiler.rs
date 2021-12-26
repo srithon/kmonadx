@@ -1004,7 +1004,7 @@ where
 {
     macro_rules! _write {
         ($($inner:tt),+) => {
-            writeln!(formatter, $($inner),+)?;
+            writeln!(formatter, $($inner),+)?
         };
     }
 
