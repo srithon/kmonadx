@@ -124,4 +124,23 @@ impl<V> DependencyGraph<V> {
             })
         })
     }
+
+    pub fn print_all_connections(&self) {
+        let shared_reference = self.get_shared_graph_reference();
+        for node_index in shared_reference.node_indices() {
+            let node_name = self
+                .lookup_table
+                .get_by_right(&node_index)
+                .expect("Indexx must be in graph");
+            let dependencies = shared_reference
+                .neighbors_directed(node_index, petgraph::Direction::Outgoing)
+                .map(|index| {
+                    self.lookup_table
+                        .get_by_right(&index)
+                        .expect("Indexx must be in graph")
+                })
+                .collect::<Vec<_>>();
+            eprintln!("{:?}: {:?}", node_name, dependencies)
+        }
+    }
 }
