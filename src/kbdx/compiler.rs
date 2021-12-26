@@ -759,7 +759,11 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
         let file_source = unsafe { (*self.file_diagnostics.get()).file_contents() }.as_bytes();
         for (_, layer) in &self.parser_data.layers {
-            for (_, (lazy_button, access_modifier)) in &layer.aliases {
+            for (_, (lazy_button_index, access_modifier)) in &layer.aliases {
+                let lazy_button = self
+                    .alias_dependency_graph
+                    .lookup_node_by_index(*lazy_button_index);
+
                 if lazy_button.is_unprocessed() {
                     let rvalue_span = lazy_button.unwrap_unprocessed_ref().as_span();
 
