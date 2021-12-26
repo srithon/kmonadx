@@ -48,7 +48,7 @@ struct Configuration<'a> {
 impl<'a> Display for Configuration<'a> {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         write_section(
-            "defconfig",
+            "defcfg",
             // OPTIMIZE: do this without allocating a vector and separate strings
             vec![
                 format!("input (device-file \"{}\")", self.input),
