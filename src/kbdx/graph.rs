@@ -28,11 +28,26 @@ impl<V> DependencyGraph<V> {
         }
     }
 
-    pub fn add_node(&mut self, key: String, value: V) -> NodeIndex {
+    pub fn add_node(&mut self, key: String, value: V) -> (NodeIndex, Option<NodeIndex>) {
         let index = self.graph.get_mut().add_node(value);
-        self.lookup_table.insert(key, index);
+        let overwritten = self.lookup_table.insert(key, index);
 
-        index
+        let overwritten_key = if overwritten.did_overwrite() {
+            use bimap::Overwritten::*;
+
+            let inner = match overwritten {
+                Left(_, index) => index,
+                // in a stable graph, cannot have repeat indices; therefore, the right value may
+                // never be overwritten
+                x => unreachable!("overwritten cannot be {:?}", x),
+            };
+
+            Some(inner)
+        } else {
+            None
+        };
+
+        (index, overwritten_key)
     }
 
     fn get_shared_graph_reference(&self) -> &StableDiGraph<V, ()> {
