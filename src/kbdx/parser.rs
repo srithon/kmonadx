@@ -277,13 +277,13 @@ impl<'a, 'b> Parser<'a, 'b> {
                         match identifier.as_rule() {
                             R::keyword_layer => match identifier.as_str() {
                                 "public" => {
-                                    layer_context.insert(LayerContext::Public);
+                                    let _ = layer_context.insert(LayerContext::Public);
                                 }
                                 "private" => {
-                                    layer_context.insert(LayerContext::Private);
+                                    let _ = layer_context.insert(LayerContext::Private);
                                 }
                                 "keys" => {
-                                    layer_context.insert(LayerContext::Keys);
+                                    let _ = layer_context.insert(LayerContext::Keys);
                                 }
                                 _ => unreachable!(),
                             },
@@ -302,7 +302,7 @@ impl<'a, 'b> Parser<'a, 'b> {
                                 let layer_entry =
                                     layers.entry(layer_stack.as_str().to_owned()).or_default();
                                 // save as current layer
-                                current_layer.insert(layer_entry);
+                                let _ = current_layer.insert(layer_entry);
                             }
                             _ => unreachable!(),
                         }
@@ -312,7 +312,7 @@ impl<'a, 'b> Parser<'a, 'b> {
                 }
                 R::header_aliases => {
                     layer_stack.clear();
-                    layer_context.insert(LayerContext::Aliases);
+                    let _ = layer_context.insert(LayerContext::Aliases);
                 }
                 R::table_property => {
                     let inner_property = pair.into_inner().next().expect(
