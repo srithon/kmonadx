@@ -166,11 +166,24 @@ mod parse {
         };
     }
 
-    create_type_parser!(double_quoted_string, &'a str, |i: Pair<'a>| i
-        .into_inner()
-        .next()
-        .expect("Double quoted strings must contain inner text")
-        .as_str());
+    create_type_parser!(double_quoted_string, &'a str, |i: Pair<'a>| {
+        let mut inner_elements = i.into_inner();
+        let first = inner_elements
+            .next()
+            .expect("Double quoted strings must contain inner text");
+
+        match first.as_rule() {
+            Rule::double_quoted_string_inner_text => {
+                assert_eq!(
+                    0,
+                    inner_elements.count(),
+                    "Constant interpolation is not allowed in the configuration block"
+                );
+                first.as_str()
+            }
+            _ => unreachable!(),
+        }
+    });
     create_type_parser!(single_quoted_string, &'a str, |i: Pair<'a>| i
         .into_inner()
         .next()
@@ -566,17 +579,20 @@ impl<'a, 'b> Compiler<'a, 'b> {
                         }
                     }
                 }
-                R::variable_reference => {
+                R::constant_reference => {
                     self.error("unimplemented feature used")
                         .add_message(Message::from_pest_span(
                             &pair.as_span(),
-                            "variable references are not yet supported",
+                            "constant references are not yet supported",
                         ));
 
                     bail!("unsupported operation")
                 }
                 R::normal_button_non_keyword => {
                     MaybeOwnedString::Borrowed(pair.as_str().trim_end())
+                }
+                R::double_quoted_string => {
+                    self.process_double_quoted_string(pair, context)?
                 }
                 x => unreachable!("Cannot have {:?} in `button`", x),
             }
@@ -585,13 +601,89 @@ impl<'a, 'b> Compiler<'a, 'b> {
         Ok(processed_string)
     }
 
-    fn process_double_quoted_string(&self, pair: Pair<'a>) -> ProcessedButton<'a> {
-        let inner_rule = pair
-            .into_inner()
-            .next()
-            .expect("Single quoted strings must have inner text");
+    fn process_double_quoted_string(
+        &self,
+        pair: Pair<'a>,
+        context: &ButtonContext,
+    ) -> ProcessedButton<'a> {
+        // subtract 2 for double quotes on both sides
+        let original_string_length = pair.as_str().len() - 2;
 
-        Ok(MaybeOwnedString::Borrowed(inner_rule.as_str()))
+        eprintln!("Processing dqs: {}", pair.as_str());
+
+        let mut inner_elements = pair.into_inner();
+
+        let first_inner = inner_elements
+            .next()
+            .expect("Double quoted strings must have inner text");
+
+        // only do a borrowed Cow if possible; we have a double quoted string with no interpolation
+        // at all
+        if matches!(first_inner.as_rule(), Rule::double_quoted_string_inner_text)
+            && inner_elements.peek().is_none()
+        {
+            Ok((MaybeOwnedString::Borrowed(first_inner.as_str()), None))
+        } else {
+            let starting_capacity = (original_string_length as f32 * 1.5) as usize;
+            let mut string_buffer = String::with_capacity(starting_capacity);
+
+            string_buffer.push('"');
+
+            let mut process_inner_string = |pair: Pair<'a>| {
+                match pair.as_rule() {
+                    Rule::double_quoted_string_inner_text => string_buffer.push_str(pair.as_str()),
+                    Rule::user_constant_reference => {
+                        let identifier = pair
+                            .into_inner()
+                            .next()
+                            .expect("Constant references must have inner identifiers");
+                        // TODO: error handling
+                        let result = self.lookup_button(
+                            identifier.clone(),
+                            &context,
+                            LookupButtonType::NodeIndex,
+                        );
+                        match result {
+                            NodeIndexOrButton::Index(index) => {
+                                let value = self.alias_dependency_graph.lookup_node_by_index(index);
+                                if value.is_unprocessed() {
+                                    // TODO: use result
+                                    value.process(|pair| {
+                                        self.process_button_pair(
+                                            Some(identifier.as_str()),
+                                            pair,
+                                            &context,
+                                        )
+                                    });
+                                }
+
+                                // TODO: haha another one
+                                string_buffer.push_str(
+                                    value
+                                        .unwrap_processed_ref()
+                                        .as_ref()
+                                        .expect("Processed thing must be good")
+                                        .0
+                                        .as_ref(),
+                                );
+                            }
+                            // TODO: error handling
+                            _ => unreachable!(),
+                        }
+                    }
+                    _ => unreachable!(),
+                };
+            };
+
+            process_inner_string(first_inner);
+            for inner in inner_elements {
+                process_inner_string(inner);
+            }
+
+            string_buffer.push('"');
+
+            Ok(MaybeOwnedString::Owned(string_buffer))
+        }
     }
 
     fn process_single_quoted_string(&self, pair: Pair<'a>) -> ProcessedButton<'a> {
@@ -665,7 +757,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 self.process_inner_button_pair(original_button_index, inner_rule, context)
             }
             R::single_quoted_string => self.process_single_quoted_string(pair),
-            R::double_quoted_string => self.process_double_quoted_string(pair),
+            R::double_quoted_string => self.process_double_quoted_string(pair, context),
             R::identifier | R::reference => {
                 // OPTIMIZE: do not repeat the work here; abstract so that we can get the
                 // alias and the node index at the same time
