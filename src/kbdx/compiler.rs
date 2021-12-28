@@ -42,8 +42,28 @@ impl<'a> Display for ButtonContext<'a> {
 /// A String that is either owned or immutably borrowed
 type MaybeOwnedString<'a> = Cow<'a, str>;
 
+/// Classifies ProcessedButtons so the compiler can decide whether to display it during the final
+/// stage of compilation
+#[derive(Debug)]
+pub enum ValueType {
+    Kbd,
+    Other,
+}
+
+use ValueType::*;
+
 /// A button that has been converted into its kbd Lisp form
-pub type ProcessedButton<'a> = color_eyre::eyre::Result<MaybeOwnedString<'a>>;
+pub type ProcessedButton<'a> = color_eyre::eyre::Result<(MaybeOwnedString<'a>, ValueType)>;
+
+/// Creates a successful ProcessedButton with ValueType::Kbd
+fn create_kbd_button<'a>(string: MaybeOwnedString<'a>) -> ProcessedButton<'a> {
+    Ok((string, Kbd))
+}
+
+/// Creates a successful ProcessedButton with ValueType::Other
+fn create_other_button<'a>(string: MaybeOwnedString<'a>) -> ProcessedButton<'a> {
+    Ok((string, Other))
+}
 
 /// Struct containing typed [configuration] values
 #[derive(Debug)]
@@ -95,15 +115,18 @@ impl<'a> Display for AliasBlock<'a> {
             .toposort()
             .expect("There must not be any cycles in the dependency graph")
             .filter(|(_, button)| !button.is_unprocessed())
-            .map(|(name, button)| {
-                format!(
-                    "{} {}",
-                    name,
-                    button
-                        .unwrap_processed_ref()
-                        .as_ref()
-                        .expect("All aliases must be successfully compiled"),
-                )
+            .filter_map(|(name, button)| {
+                let unwrapped = button.unwrap_processed_ref();
+
+                let as_ref = unwrapped
+                    .as_ref()
+                    .expect("All aliases must be successfully compiled");
+
+                if matches!(as_ref.1, Kbd) {
+                    Some(format!("{} {}", name, as_ref.0))
+                } else {
+                    None
+                }
             });
 
         write_section("defalias", sorted_aliases, formatter)
@@ -380,7 +403,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                                 reference_identifier.as_str()
                             ));
 
-                            Button(Ok(cow))
+                            Button(create_kbd_button(cow))
                         } else {
                             self.error(format!(
                                 "button `{}` is private",
@@ -425,7 +448,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                             let _ =
                                 self.process_lazy_button(button_identifier.as_str(), key, context);
 
-                            return Button(Ok(MaybeOwnedString::Owned(format!(
+                            return Button(create_kbd_button(MaybeOwnedString::Owned(format!(
                                 "{}{}.{}",
                                 if prepend_at!() { "@" } else { "" },
                                 layer_name,
@@ -456,7 +479,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                         &ButtonContext::Aliases,
                     );
 
-                    Button(Ok(if prepend_at!() {
+                    Button(create_kbd_button(if prepend_at!() {
                         MaybeOwnedString::Owned(format!("@{}", button_identifier.as_str()))
                     } else {
                         MaybeOwnedString::Borrowed(button_identifier.as_str())
@@ -508,7 +531,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
     ) -> ProcessedButton<'a> {
         use Rule as R;
 
-        let processed_string = {
+        let processed_button = {
             match pair.as_rule() {
                 // tap macros and normal buttons do not yet exhibit special behavior
                 r @ (R::tap_macro | R::normal_button) => {
@@ -526,11 +549,11 @@ impl<'a, 'b> Compiler<'a, 'b> {
                     for child in pair.into_inner() {
                         num_children += 1;
 
-                        string_buffer.push_str(&self.process_inner_button_pair(
-                            original_button_index,
-                            child,
-                            context,
-                        )?);
+                        string_buffer.push_str(
+                            &self
+                                .process_inner_button_pair(original_button_index, child, context)?
+                                .0,
+                        );
                         string_buffer.push(' ');
                     }
 
@@ -541,7 +564,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
                     string_buffer.push(')');
 
-                    MaybeOwnedString::Owned(string_buffer)
+                    create_kbd_button(MaybeOwnedString::Owned(string_buffer))
                 }
                 R::button_alias | R::reference => {
                     // have to clone pair so we can use it in case of errors
@@ -565,12 +588,12 @@ impl<'a, 'b> Compiler<'a, 'b> {
                                     .add_dep_by_index(index, other_index);
                             };
 
-                            MaybeOwnedString::Owned(format!(
+                            create_kbd_button(MaybeOwnedString::Owned(format!(
                                 "@{}",
                                 self.alias_dependency_graph
                                     .lookup_key_by_index(&other_index)
                                     .expect("Index must be present in graph")
-                            ))
+                            )))
                         }
                         NodeIndexOrButton::Button(button) => {
                             // this only happens when lookup_button throws an error
@@ -589,16 +612,14 @@ impl<'a, 'b> Compiler<'a, 'b> {
                     bail!("unsupported operation")
                 }
                 R::normal_button_non_keyword => {
-                    MaybeOwnedString::Borrowed(pair.as_str().trim_end())
+                    create_other_button(MaybeOwnedString::Borrowed(pair.as_str().trim_end()))
                 }
-                R::double_quoted_string => {
-                    self.process_double_quoted_string(pair, context)?
-                }
+                R::double_quoted_string => self.process_double_quoted_string(pair, context),
                 x => unreachable!("Cannot have {:?} in `button`", x),
             }
         };
 
-        Ok(processed_string)
+        processed_button
     }
 
     fn process_double_quoted_string(
@@ -622,14 +643,14 @@ impl<'a, 'b> Compiler<'a, 'b> {
         if matches!(first_inner.as_rule(), Rule::double_quoted_string_inner_text)
             && inner_elements.peek().is_none()
         {
-            Ok((MaybeOwnedString::Borrowed(first_inner.as_str()), None))
+            create_other_button(MaybeOwnedString::Borrowed(first_inner.as_str()))
         } else {
             let starting_capacity = (original_string_length as f32 * 1.5) as usize;
             let mut string_buffer = String::with_capacity(starting_capacity);
 
             string_buffer.push('"');
 
-            let mut process_inner_string = |pair: Pair<'a>| {
+            let mut process_inner_string = |pair: Pair<'a>| -> color_eyre::eyre::Result<()> {
                 match pair.as_rule() {
                     Rule::double_quoted_string_inner_text => string_buffer.push_str(pair.as_str()),
                     Rule::user_constant_reference => {
@@ -637,7 +658,6 @@ impl<'a, 'b> Compiler<'a, 'b> {
                             .into_inner()
                             .next()
                             .expect("Constant references must have inner identifiers");
-                        // TODO: error handling
                         let result = self.lookup_button(
                             identifier.clone(),
                             &context,
@@ -647,42 +667,39 @@ impl<'a, 'b> Compiler<'a, 'b> {
                             NodeIndexOrButton::Index(index) => {
                                 let value = self.alias_dependency_graph.lookup_node_by_index(index);
                                 if value.is_unprocessed() {
-                                    // TODO: use result
                                     value.process(|pair| {
                                         self.process_button_pair(
                                             Some(identifier.as_str()),
                                             pair,
                                             &context,
                                         )
-                                    });
+                                    })?;
                                 }
 
-                                // TODO: haha another one
-                                string_buffer.push_str(
-                                    value
-                                        .unwrap_processed_ref()
-                                        .as_ref()
-                                        .expect("Processed thing must be good")
-                                        .0
-                                        .as_ref(),
-                                );
+                                let processed_button = value.unwrap_processed_ref();
+
+                                match processed_button.as_ref() {
+                                    Ok((string, _)) => string_buffer.push_str(string.as_ref()),
+                                    Err(_) => bail!("Variable dependency failed"),
+                                }
                             }
-                            // TODO: error handling
-                            _ => unreachable!(),
+                            _ => bail!("Could not resolve variable"),
                         }
                     }
-                    _ => unreachable!(),
+                    x => panic!("Invalid inner double quoted string rule: {:?}", x),
                 };
+
+                Ok(())
             };
 
-            process_inner_string(first_inner);
+            process_inner_string(first_inner)?;
             for inner in inner_elements {
-                process_inner_string(inner);
+                process_inner_string(inner)?;
             }
 
             string_buffer.push('"');
 
-            Ok(MaybeOwnedString::Owned(string_buffer))
+            create_other_button(MaybeOwnedString::Owned(string_buffer))
         }
     }
 
@@ -693,7 +710,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
             .expect("Single quoted strings must have inner text");
 
         if let Some(keycode) = normalize_keycode(inner_rule.as_str()) {
-            Ok(MaybeOwnedString::Borrowed(keycode))
+            create_kbd_button(MaybeOwnedString::Borrowed(keycode))
         } else {
             self.error("invalid keycode")
                 .add_message(Message::from_pest_span(
@@ -783,7 +800,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
                 alias_string
             }
-            R::number => Ok(MaybeOwnedString::Borrowed(pair.as_str())),
+            R::number => create_other_button(MaybeOwnedString::Borrowed(pair.as_str())),
             x => {
                 // TODO: handle this at the parser level
                 // numbers are only valid during configuration
@@ -1011,6 +1028,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                             .unwrap_processed_ref()
                             .as_ref()
                             .expect("Keys must be successfully processed")
+                            .0
                             .as_ref(),
                     )
                 });
