@@ -783,6 +783,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
                 alias_string
             }
+            R::number => Ok(MaybeOwnedString::Borrowed(pair.as_str())),
             x => {
                 // TODO: handle this at the parser level
                 // numbers are only valid during configuration
