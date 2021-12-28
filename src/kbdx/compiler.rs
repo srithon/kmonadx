@@ -993,19 +993,18 @@ impl<'a, 'b> Compiler<'a, 'b> {
             let layer = state.parser_layers.get(layer_name).unwrap();
 
             let mut parents = layer.parent_name.iter();
-            let mut new_layer: ProcessedLayer<ProcessedButton> = if let Some(parent) =
-                parents.next()
-            {
-                process_layer(processed_layers, state, parent.as_str()).clone()
-            } else {
-                // NOTE: this usage of `transmute` is justified earlier in the function
-                unsafe {
-                    std::mem::transmute::<&ProcessedLayer<()>, &ProcessedLayer<ProcessedButton>>(
-                        &state.default_parent,
-                    )
-                }
-                .clone()
-            };
+            let mut new_layer: ProcessedLayer<ProcessedButton> =
+                if let Some(parent) = parents.next() {
+                    process_layer(processed_layers, state, parent.as_str()).clone()
+                } else {
+                    // NOTE: this usage of `transmute` is justified earlier in the function
+                    unsafe {
+                        std::mem::transmute::<&ProcessedLayer<()>, &ProcessedLayer<ProcessedButton>>(
+                            &state.default_parent,
+                        )
+                    }
+                    .clone()
+                };
 
             for parent_name in parents {
                 // do inheritance
