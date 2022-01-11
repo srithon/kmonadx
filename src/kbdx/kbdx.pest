@@ -3,8 +3,10 @@
 // you can stop this from happening by using atomic rules
 WHITESPACE = _{ (" " | "\t")+ }
 
-not_newline = {
-  !(NEWLINE) ~ ANY
+LINE_BOUNDARY = _{ NEWLINE | EOI }
+
+not_line_boundary = {
+  !(LINE_BOUNDARY) ~ ANY
 }
 
 boundary = _{ WHITE_SPACE | PUNCTUATION | EOI }
@@ -19,7 +21,7 @@ keyword_access_modifier = _{ ("private" | "public") ~ &boundary }
 
 // another builtin rule
 // we say that comments do not start with #( in order to disambiguate them from tap macros, which use the #( syntax
-COMMENT = _{ "#" ~ not_newline* ~ &NEWLINE}
+COMMENT = _{ "#" ~ not_line_boundary* ~ &LINE_BOUNDARY}
 
 legal_character = _{
   ASCII_ALPHANUMERIC | "_" | "-"
