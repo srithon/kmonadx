@@ -19,7 +19,7 @@ keyword_access_modifier = _{ ("private" | "public") ~ &boundary }
 
 // another builtin rule
 // we say that comments do not start with #( in order to disambiguate them from tap macros, which use the #( syntax
-COMMENT = _{ "#" ~ not_newline* ~ NEWLINE}
+COMMENT = _{ "#" ~ not_newline* ~ &NEWLINE}
 
 legal_character = _{
   ASCII_ALPHANUMERIC | "_" | "-"
