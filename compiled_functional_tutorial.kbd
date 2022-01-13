@@ -1,0 +1,182 @@
+(defcfg
+  input (device-file "/dev/input/by-id/usb-Logitech_USB_Receiver-if02-event-kbd")
+  output (uinput-sink "Logitech KMonad Output" "/run/current-system/sw/bin/sleep 1 && /run/current-system/sw/bin/setxkbmap -option compose:ralt")
+  cmp-seq rctrl
+  cmp-seq-delay 5
+  fallthrough true
+  allow-cmd true
+  )
+(defalias
+  volume.log-key (cmd-button "echo \"Log button pressed!\" > $ENV_VAR_LOG_FILE")
+  volume.mute (cmd-button "qdbus org.kde.kglobalaccel /component/kmix invokeShortcut mute")
+  volume.osd-toggle (cmd-button "~/.config/kmonad/volume/toggle_osd.sh")
+  volume.down (cmd-button "~/.config/kmonad/volume/volume.sh -"  "~/.config/kmonad/volume/volume.sh 0")
+  volume.up (cmd-button "~/.config/kmonad/volume/volume.sh +"  "~/.config/kmonad/volume/volume.sh 0")
+  volume.exit (layer-rem volume)
+  scroll.arrow-keys.exit (layer-rem scroll.arrow-keys)
+  scroll.arrow-keys.enter (layer-add scroll.arrow-keys)
+  scroll.speed-down (cmd-button "~/.config/kmonad/scroll/scroll_speed.sh 200"  "~/.config/kmonad/scroll/scroll_speed.sh 0")
+  scroll.speed-up (cmd-button "~/.config/kmonad/scroll/scroll_speed.sh 50"  "~/.config/kmonad/scroll/scroll_speed.sh 0")
+  scroll.right (cmd-button "~/.config/kmonad/scroll/scroll.sh h +"  "~/.config/kmonad/scroll/scroll.sh h 0")
+  scroll.down (cmd-button "~/.config/kmonad/scroll/scroll.sh v +"  "~/.config/kmonad/scroll/scroll.sh v 0")
+  scroll.up (cmd-button "~/.config/kmonad/scroll/scroll.sh v -"  "~/.config/kmonad/scroll/scroll.sh v 0")
+  scroll.left (cmd-button "~/.config/kmonad/scroll/scroll.sh h -"  "~/.config/kmonad/scroll/scroll.sh h 0")
+  scroll.exit (layer-rem scroll)
+  scroll.enter (layer-add scroll)
+  volume.enter #(@scroll.enter (cmd-button "echo 1 > /tmp/volume_script_osd_file") (layer-add volume))
+  run.exit #((layer-rem run) (cmd-button "killall st"))
+  run.runner (cmd-button "~/.config/kmonad/runner/runner.sh")
+  run.enter #(@run.runner (layer-add run))
+  discord (cmd-button "wmctrl -a discord || /usr/bin/Discord")
+  window-switcher (cmd-button "rofi -noplugins -modi window -show window -lines 5 --normal-window")
+  homerow-mods.enter (layer-switch homerow-mods)
+  homerow-mods.exit (layer-switch base)
+  homerow-mods.lctrl-or-escape (tap-hold-next-release 125  esc lctl)
+  leader.leader_next (around-next (layer-toggle leader))
+  leader.enter (tap-hold-next-release 250 @leader.leader_next  lmet)
+  )
+(defsrc
+  CapsLock
+  D
+  H
+  J
+  K
+  L
+  LeftMeta
+  LeftShift
+  M
+  Q
+  R
+  S
+  Tab
+  V
+  )
+(deflayer base
+  CapsLock
+  D
+  H
+  J
+  K
+  L
+  @leader.enter
+  LeftShift
+  M
+  Q
+  R
+  S
+  Tab
+  V
+  )
+(deflayer scroll.arrow-keys
+  _
+  _
+  Left
+  Down
+  Up
+  Right
+  @scroll.arrow-keys.exit
+  _
+  _
+  _
+  _
+  _
+  _
+  _
+  )
+(deflayer volume
+  _
+  _
+  _
+  @volume.down
+  @volume.up
+  @volume.log-key
+  @volume.exit
+  _
+  @volume.mute
+  @volume.osd-toggle
+  @run.enter
+  @scroll.enter
+  _
+  @volume.enter
+  )
+(deflayer run
+  _
+  _
+  _
+  _
+  _
+  _
+  @run.exit
+  _
+  _
+  _
+  _
+  _
+  _
+  _
+  )
+(deflayer leader
+  XX
+  @discord
+  @homerow-mods.enter
+  XX
+  XX
+  XX
+  LeftMeta
+  XX
+  XX
+  @window-switcher
+  @run.enter
+  @scroll.enter
+  XX
+  @volume.enter
+  )
+(deflayer enter-layers
+  _
+  _
+  _
+  _
+  _
+  _
+  _
+  _
+  _
+  _
+  @run.enter
+  @scroll.enter
+  _
+  @volume.enter
+  )
+(deflayer homerow-mods
+  @homerow-mods.lctrl-or-escape
+  _
+  _
+  _
+  _
+  _
+  @homerow-mods.exit
+  _
+  _
+  _
+  _
+  _
+  _
+  _
+  )
+(deflayer scroll
+  @scroll.speed-down
+  _
+  @scroll.left
+  @scroll.down
+  @scroll.up
+  @scroll.right
+  @scroll.exit
+  @scroll.speed-up
+  _
+  _
+  @run.enter
+  @scroll.exit
+  @scroll.arrow-keys.enter
+  @volume.enter
+  )
+
