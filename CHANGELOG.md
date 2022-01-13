@@ -1,3 +1,9 @@
+# 0.3.1
+
+- Program now sets the exit code properly instead of printing it out
+- Rather than printing the compiled document to stdout, correctly writes it to files
+- Program now prints long help when no arguments are passed in
+
 # 0.3.0
 
 - Added support for string/number constant interpolation
