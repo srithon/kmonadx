@@ -31,7 +31,7 @@ fn main() -> Result<()> {
     // errors
     let files_content = UnsafeCell::new(Vec::with_capacity(cli.filenames.len()));
 
-    for file_name in cli.filenames {
+    for mut file_name in cli.filenames {
         let file_contents = std::fs::read_to_string(&file_name)
             .wrap_err(format!("Unable to read file: {:?}", file_name))
             .suggestion("Please specify a file that exists")?;
@@ -42,13 +42,24 @@ fn main() -> Result<()> {
             files_content_ref.last().unwrap()
         };
 
-        let file_handle = diagnostics.new_file(
+        let mut file_handle = diagnostics.new_file(
             file_name
                 .to_str()
                 .ok_or_else(|| eyre!("Filename is not valid unicode!"))?
                 .to_owned(),
             file_contents,
         );
+
+        // OPTIMIZE: shouldn't have to read the file before handling this case
+        if let Some(ext) = file_name.extension() {
+            if ext == "kbd" {
+                file_handle.error(format!(
+                    "Cannot compile '{:?}'; file already has .kbd extension!",
+                    file_name
+                ));
+                continue;
+            }
+        }
 
         let mut parser = Parser::new(file_contents, file_handle);
 
@@ -60,10 +71,13 @@ fn main() -> Result<()> {
                     match compiler.compile_string() {
                         Ok(string) => {
                             if !cli.check {
-                                println!("{}", string);
+                                // replace kbdx extension with kbd or append .kbd if there is no
+                                // extension
+                                file_name.set_extension("kbd");
+                                std::fs::write(file_name, string)?;
                             }
-                        },
-                        Err(_) => break
+                        }
+                        Err(_) => break,
                     }
                 }
                 Err(_) => break,
