@@ -863,6 +863,9 @@ impl<'a, 'b> Compiler<'a, 'b> {
                             _ => bail!("Could not resolve variable"),
                         }
                     }
+                    Rule::escaped_dollar => {
+                        string_buffer.push_str("$")
+                    }
                     x => panic!("Invalid inner double quoted string rule: {:?}", x),
                 };
 

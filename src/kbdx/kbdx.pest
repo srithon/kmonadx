@@ -155,16 +155,20 @@ string = _{
   single_quoted_string | double_quoted_string
 }
 
+escaped_dollar = @{
+  "\\$"
+}
+
 double_quoted_string_inner_text = ${
   // consume escaped $
   // consume escaped double quotes
   // do not consume $ (constant reference)
   // do not consume unescaped double quotes
-  ("\\$" | "\\\"" | !("$") ~ !("\"") ~ ANY)+
+  ("\\\"" | !("$") ~ !("\"") ~ !escaped_dollar ~ ANY)+
 }
 
 double_quoted_string = ${
-  "\"" ~ (user_constant_reference | double_quoted_string_inner_text)* ~ "\""
+  "\"" ~ (user_constant_reference | escaped_dollar | double_quoted_string_inner_text)* ~ "\""
 }
 
 // TODO: handle escaped single quotes within inner_text
