@@ -9,12 +9,16 @@ use kmonadx::kbdx::diagnostic::DiagnosticAggregator;
 
 use std::cell::UnsafeCell;
 
-fn main() -> Result<()> {
+// Because std::process::exit terminates the program without running destructors, we need a helper
+// function to wrap all the functionality so that there is nothing left to cleanup in the actual
+// main function.
+// This function returns the exit code.
+fn _main() -> Result<usize> {
     let cli = CLI::from_args();
 
     if cli.filenames.is_empty() {
         CLI::clap().print_long_help()?;
-        return Ok(())
+        return Ok(1);
     }
 
     // https://github.com/yaahc/color-eyre/issues/83
@@ -94,7 +98,10 @@ fn main() -> Result<()> {
     // are no more destructors left to run.
     // END QUOTE
     let exit_code: usize = diagnostics.emit_all()?.into();
-    eprintln!("Exit code would be {}", exit_code);
+    Ok(exit_code)
+}
 
-    Ok(())
+fn main() -> Result<()> {
+    let exit_code = _main()?;
+    std::process::exit(exit_code as i32)
 }
