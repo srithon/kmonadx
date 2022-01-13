@@ -80,7 +80,7 @@ assignment = ${
   WHITESPACE? ~
   "=" ~
   WHITESPACE? ~
-  (button | string | reference | number | boolean | identifier)
+  (button | string | reference | number | boolean | identifier | constant_reference)
 }
 
 identifier_list = !{
