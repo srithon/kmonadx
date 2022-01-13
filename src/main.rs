@@ -12,6 +12,11 @@ use std::cell::UnsafeCell;
 fn main() -> Result<()> {
     let cli = CLI::from_args();
 
+    if cli.filenames.is_empty() {
+        CLI::clap().print_long_help()?;
+        return Ok(())
+    }
+
     // https://github.com/yaahc/color-eyre/issues/83
     // We do not want the "Backtrace has been omitted" message to display
     color_eyre::config::HookBuilder::default()
