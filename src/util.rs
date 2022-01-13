@@ -64,11 +64,6 @@ impl StringStack {
         self.string.len()
     }
 
-    /// Returns true if the internal string is empty, otherwise false
-    pub fn is_empty(&self) -> bool {
-        self.string.is_empty()
-    }
-
     /// Returns a reference to the internal String
     pub fn as_str(&self) -> &str {
         &self.string
