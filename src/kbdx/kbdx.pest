@@ -3,8 +3,10 @@
 // you can stop this from happening by using atomic rules
 WHITESPACE = _{ (" " | "\t")+ }
 
-not_newline = {
-  !(NEWLINE) ~ ANY
+LINE_BOUNDARY = _{ NEWLINE | EOI }
+
+not_line_boundary = {
+  !(LINE_BOUNDARY) ~ ANY
 }
 
 boundary = _{ WHITE_SPACE | PUNCTUATION | EOI }
@@ -19,7 +21,7 @@ keyword_access_modifier = _{ ("private" | "public") ~ &boundary }
 
 // another builtin rule
 // we say that comments do not start with #( in order to disambiguate them from tap macros, which use the #( syntax
-COMMENT = _{ "#" ~ not_newline* ~ NEWLINE}
+COMMENT = _{ "#" ~ not_line_boundary* ~ &LINE_BOUNDARY}
 
 legal_character = _{
   ASCII_ALPHANUMERIC | "_" | "-"
@@ -78,7 +80,7 @@ assignment = ${
   WHITESPACE? ~
   "=" ~
   WHITESPACE? ~
-  (button | string | reference | number | boolean | identifier)
+  (button | string | reference | number | boolean | identifier | constant_reference)
 }
 
 identifier_list = !{
@@ -103,11 +105,11 @@ internal_button = _{
 // normal_button's start with an opening parenthesis ( '(' ), so we need to avoid that
 // they end with a closing parenthesis, so we need to avoid consuming that so that the rule can exit
 //
-// variable references start with ampersands (&), so we need to avoid consuming that
+// constant references start with ampersands (&), so we need to avoid consuming that
 //
 // tap macros start with #, so we need to avoid consuming that
 normal_button_non_keyword = {
-  (!("(" | ")" | "&" | "@") ~ ANY)+
+  (!("(" | ")" | "&" | "$" | "@" | "\"") ~ ANY)+
 }
 
 // this rule matches parentheses
@@ -116,18 +118,27 @@ normal_button = {
   "(" ~
     (
      // button "inner text" that does not match any other rule
-     normal_button_non_keyword ~
-     (variable_reference)? ~
+     normal_button_non_keyword |
+     double_quoted_string |
+     constant_reference |
      // followed by an optional internal button
-     (internal_button)?
+     internal_button
     // repeated many times
     )* ~
   // enclosed within parentheses
   ")"
 }
 
-variable_reference = ${
+constant_reference = ${
+  builtin_constant_reference | user_constant_reference
+}
+
+builtin_constant_reference = ${
   "&" ~ identifier
+}
+
+user_constant_reference = ${
+  "$" ~ identifier
 }
 
 button_alias = ${
@@ -144,13 +155,20 @@ string = _{
   single_quoted_string | double_quoted_string
 }
 
-// TODO: handle escaped double quotes within inner_text
-double_quoted_string_inner_text = {
-  (!("\"") ~ ANY)*
+escaped_dollar = @{
+  "\\$"
+}
+
+double_quoted_string_inner_text = ${
+  // consume escaped $
+  // consume escaped double quotes
+  // do not consume $ (constant reference)
+  // do not consume unescaped double quotes
+  ("\\\"" | !("$") ~ !("\"") ~ !escaped_dollar ~ ANY)+
 }
 
 double_quoted_string = ${
-  "\"" ~ double_quoted_string_inner_text ~ "\""
+  "\"" ~ (user_constant_reference | escaped_dollar | double_quoted_string_inner_text)* ~ "\""
 }
 
 // TODO: handle escaped single quotes within inner_text

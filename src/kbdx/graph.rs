@@ -2,6 +2,7 @@ use ahash::RandomState;
 use bimap::hash::BiHashMap;
 use petgraph::algo::{toposort, Cycle};
 use petgraph::stable_graph::{DefaultIx, NodeIndex as GraphNodeIndex, StableDiGraph};
+use petgraph::Direction;
 
 use std::cell::UnsafeCell;
 
@@ -103,6 +104,15 @@ impl<V> DependencyGraph<V> {
     pub fn add_dep_by_index(&self, dependent_index: NodeIndex, dependency_index: NodeIndex) {
         self.get_exclusive_graph_reference()
             .add_edge(dependency_index, dependent_index, ());
+    }
+
+    /// Returns `true` if the vertex associated with the index has any dependencies, `false`
+    /// otherwise.
+    pub fn has_dependencies(&self, dependency_index: NodeIndex) -> bool {
+        self.get_shared_graph_reference()
+            .neighbors_directed(dependency_index, Direction::Outgoing)
+            .count()
+            != 0
     }
 
     /// Iterates over the nodes in the graph such that nodes are processed after the nodes they

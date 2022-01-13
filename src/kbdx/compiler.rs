@@ -42,8 +42,53 @@ impl<'a> Display for ButtonContext<'a> {
 /// A String that is either owned or immutably borrowed
 type MaybeOwnedString<'a> = Cow<'a, str>;
 
+/// Classifies ProcessedButtons so the compiler can decide whether to display it during the final
+/// stage of compilation
+#[derive(Debug, Clone)]
+pub enum ValueType {
+    KbdOnly,
+    ConstantOnly { quoted: bool },
+    Either,
+}
+
+impl ValueType {
+    pub fn is_valid_kbd(&self) -> bool {
+        !matches!(self, ValueType::ConstantOnly { .. })
+    }
+
+    pub fn is_valid_constant(&self) -> bool {
+        !matches!(self, ValueType::KbdOnly)
+    }
+
+    pub fn is_quoted(&self) -> bool {
+        match self {
+            ValueType::ConstantOnly { quoted } => *quoted,
+            _ => false,
+        }
+    }
+}
+
 /// A button that has been converted into its kbd Lisp form
-pub type ProcessedButton<'a> = color_eyre::eyre::Result<MaybeOwnedString<'a>>;
+// TODO: newtype_derive, add methods onto ProcessedButton
+pub type ProcessedButton<'a> = color_eyre::eyre::Result<(MaybeOwnedString<'a>, ValueType)>;
+
+/// Creates a successful ProcessedButton with ValueType::Kbd
+fn create_kbd_only_button<'a>(string: MaybeOwnedString<'a>) -> ProcessedButton<'a> {
+    Ok((string, ValueType::KbdOnly))
+}
+
+/// Creates a successful ProcessedButton with ValueType::Other
+fn create_constant_only_button<'a>(
+    string: MaybeOwnedString<'a>,
+    quoted: bool,
+) -> ProcessedButton<'a> {
+    Ok((string, ValueType::ConstantOnly { quoted }))
+}
+
+/// Creates a successful ProcessedButton with ValueType::Kbd
+fn create_either_button<'a>(string: MaybeOwnedString<'a>) -> ProcessedButton<'a> {
+    Ok((string, ValueType::Either))
+}
 
 /// Struct containing typed [configuration] values
 #[derive(Debug)]
@@ -95,15 +140,21 @@ impl<'a> Display for AliasBlock<'a> {
             .toposort()
             .expect("There must not be any cycles in the dependency graph")
             .filter(|(_, button)| !button.is_unprocessed())
-            .map(|(name, button)| {
-                format!(
-                    "{} {}",
-                    name,
-                    button
-                        .unwrap_processed_ref()
-                        .as_ref()
-                        .expect("All aliases must be successfully compiled"),
-                )
+            .filter_map(|(name, button)| {
+                let unwrapped = button.unwrap_processed_ref();
+
+                let as_ref = unwrapped
+                    .as_ref()
+                    .expect("All aliases must be successfully compiled");
+
+                // need to track which things in the graph are being referred to as variables an
+                // which are referred to as aliases
+                // NOTE: anything that is a valid constant is not a valid alias; numbers, strings
+                if !as_ref.1.is_valid_constant() {
+                    Some(format!("{} {}", name, as_ref.0))
+                } else {
+                    None
+                }
             });
 
         write_section("defalias", sorted_aliases, formatter)
@@ -166,11 +217,24 @@ mod parse {
         };
     }
 
-    create_type_parser!(double_quoted_string, &'a str, |i: Pair<'a>| i
-        .into_inner()
-        .next()
-        .expect("Double quoted strings must contain inner text")
-        .as_str());
+    create_type_parser!(double_quoted_string, &'a str, |i: Pair<'a>| {
+        let mut inner_elements = i.into_inner();
+        let first = inner_elements
+            .next()
+            .expect("Double quoted strings must contain inner text");
+
+        match first.as_rule() {
+            Rule::double_quoted_string_inner_text => {
+                assert_eq!(
+                    0,
+                    inner_elements.count(),
+                    "Constant interpolation is not allowed in the configuration block"
+                );
+                first.as_str()
+            }
+            _ => unreachable!(),
+        }
+    });
     create_type_parser!(single_quoted_string, &'a str, |i: Pair<'a>| i
         .into_inner()
         .next()
@@ -204,6 +268,7 @@ enum NodeIndexOrButton<'a> {
 
 /// The requested return type from lookup_button: the index of the node within
 /// the graph, or a string containing an alias to the button.
+#[derive(Debug, Clone)]
 enum LookupButtonType {
     ReferenceAt,
     NodeIndex,
@@ -305,6 +370,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
         // The layer in which the button is being looked up from
         context: &ButtonContext,
         return_type: LookupButtonType,
+        expecting_constant: bool,
     ) -> NodeIndexOrButton<'a> {
         use Rule as R;
 
@@ -323,6 +389,57 @@ impl<'a, 'b> Compiler<'a, 'b> {
         use LookupButtonType::*;
         use NodeIndexOrButton::*;
 
+        // Macro for taking a NodeIndexOrButton and plugging the associated ProcessedButton into
+        // check_button_type!
+        macro_rules! verify_button_type {
+            ($node_index_or_button:expr, $pair:expr) => {{
+                match &$node_index_or_button {
+                    NodeIndexOrButton::Index(index) => {
+                        let lazy_button = self.alias_dependency_graph.lookup_node_by_index(*index);
+                        let unwrapped = lazy_button.unwrap_processed_ref();
+
+                        _verify_button_type_helper!(unwrapped.as_ref(), $pair)
+                    }
+                    NodeIndexOrButton::Button(button) => {
+                        _verify_button_type_helper!(button, $pair)
+                    }
+                }
+            }};
+        }
+
+        // Internal helper macro for verifying that a ProcessedButton is the correct type; constant
+        // if we are expecting a constant or a Lisp button if we are expecting that
+        macro_rules! _verify_button_type_helper {
+            ($processed_button:expr, $pair:expr) => {{
+                match $processed_button {
+                    Ok((_, value_info)) => {
+                        let is_correct = if expecting_constant {
+                            value_info.is_valid_constant()
+                        } else {
+                            value_info.is_valid_kbd()
+                        };
+
+                        if !is_correct {
+                            let (expected, received) = if expecting_constant {
+                                ("constant", "lisp button")
+                            } else {
+                                ("lisp button", "constant")
+                            };
+
+                            self.error("mismatched types")
+                                .add_message(Message::from_pest_span(
+                                    &$pair.as_span(),
+                                    format!("expected {}, found {}", expected, received),
+                                ));
+
+                            err!("mismatched types")
+                        }
+                    }
+                    Err(_) => (),
+                }
+            }};
+        }
+
         match button_identifier.as_rule() {
             R::button_alias => {
                 let button_identifier = button_identifier
@@ -330,10 +447,16 @@ impl<'a, 'b> Compiler<'a, 'b> {
                     .next()
                     .expect("Button aliases must have inner identifiers");
 
-                self.lookup_button(button_identifier, context, return_type)
+                let button =
+                    self.lookup_button(button_identifier.clone(), context, return_type, false);
+
+                verify_button_type!(button, button_identifier);
+
+                button
             }
             R::reference => {
-                let mut pairs = button_identifier.into_inner();
+                // OPTIMIZE: don't clone the entire thing, only preserve the span?
+                let mut pairs = button_identifier.clone().into_inner();
                 let reference_layer_name = pairs.next().expect("Pair must have >0 children");
 
                 if let Some(layer) = self.parser_data.layers.get(reference_layer_name.as_str()) {
@@ -346,7 +469,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                             return Index(*key_index);
                         }
 
-                        let key = self.alias_dependency_graph.lookup_node_by_index(*key_index);
+                        let button = self.alias_dependency_graph.lookup_node_by_index(*key_index);
 
                         // process the button
                         //
@@ -355,8 +478,14 @@ impl<'a, 'b> Compiler<'a, 'b> {
                         // MISTAKE: didn't change button context to referenced layer when processing layer references
                         let _ = self.process_lazy_button(
                             reference_identifier.as_str(),
-                            key,
+                            button,
                             &ButtonContext::Layer(reference_layer_name.as_str()),
+                        );
+
+                        // use internal helper macro because we already have the LazyButton
+                        _verify_button_type_helper!(
+                            button.unwrap_processed_ref().as_ref(),
+                            button_identifier
                         );
 
                         if matches!(access_modifier, AccessModifier::Public) {
@@ -367,7 +496,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                                 reference_identifier.as_str()
                             ));
 
-                            Button(Ok(cow))
+                            Button(create_kbd_only_button(cow))
                         } else {
                             self.error(format!(
                                 "button `{}` is private",
@@ -402,22 +531,34 @@ impl<'a, 'b> Compiler<'a, 'b> {
                     if let Some(layer) = self.parser_data.layers.get(*layer_name) {
                         if let Some((key_index, _)) = layer.aliases.get(button_identifier.as_str())
                         {
+                            let button =
+                                self.alias_dependency_graph.lookup_node_by_index(*key_index);
+
+                            // process the button
+                            let _ = self.process_lazy_button(
+                                button_identifier.as_str(),
+                                button,
+                                context,
+                            );
+
+                            // use internal helper macro because we already have the LazyButton
+                            _verify_button_type_helper!(
+                                button.unwrap_processed_ref().as_ref(),
+                                button_identifier
+                            );
+
                             if matches!(return_type, NodeIndex) {
                                 return Index(*key_index);
                             }
 
-                            let key = self.alias_dependency_graph.lookup_node_by_index(*key_index);
-
-                            // process the button
-                            let _ =
-                                self.process_lazy_button(button_identifier.as_str(), key, context);
-
-                            return Button(Ok(MaybeOwnedString::Owned(format!(
-                                "{}{}.{}",
-                                if prepend_at!() { "@" } else { "" },
-                                layer_name,
-                                button_identifier.as_str()
-                            ))));
+                            return Button(create_kbd_only_button(MaybeOwnedString::Owned(
+                                format!(
+                                    "{}{}.{}",
+                                    if prepend_at!() { "@" } else { "" },
+                                    layer_name,
+                                    button_identifier.as_str()
+                                ),
+                            )));
                         }
                         // else, proceed by trying in global
                     } else {
@@ -430,38 +571,49 @@ impl<'a, 'b> Compiler<'a, 'b> {
                     .global_aliases
                     .get(button_identifier.as_str())
                 {
-                    if matches!(return_type, NodeIndex) {
-                        return Index(*key_index);
-                    }
-
-                    let key = self.alias_dependency_graph.lookup_node_by_index(*key_index);
+                    let button = self.alias_dependency_graph.lookup_node_by_index(*key_index);
 
                     // process the button
                     let _ = self.process_lazy_button(
                         button_identifier.as_str(),
-                        key,
+                        button,
                         &ButtonContext::Aliases,
                     );
 
-                    Button(Ok(if prepend_at!() {
+                    // use internal helper macro because we already have the LazyButton
+                    // TODO: move this out to the end of the method; return (NodeIndex, Option<Alias>)
+                    _verify_button_type_helper!(
+                        button.unwrap_processed_ref().as_ref(),
+                        button_identifier
+                    );
+
+                    if matches!(return_type, NodeIndex) {
+                        return Index(*key_index);
+                    }
+
+                    Button(create_kbd_only_button(if prepend_at!() {
                         MaybeOwnedString::Owned(format!("@{}", button_identifier.as_str()))
                     } else {
                         MaybeOwnedString::Borrowed(button_identifier.as_str())
                     }))
                 } else {
-                    eprintln!(
-                        "couldnt find alias: {} in context: {}",
-                        button_identifier.as_str(),
-                        context
-                    );
+                    let find_target = if expecting_constant {
+                        "constant"
+                    } else {
+                        "alias"
+                    };
 
-                    self.error("could not resolve alias")
+                    let error_handle = self
+                        .error(format!("could not resolve {}", find_target))
                         .add_message(Message::from_pest_span_no_text(
                             &button_identifier.as_span(),
-                        ))
-                        .add_note("should you be using a reference instead?");
+                        ));
 
-                    err!("could not resolve alias");
+                    if !expecting_constant {
+                        error_handle.add_note("should you be using a reference instead?");
+                    }
+
+                    err!("could not resolve");
                 }
             }
             x => unreachable!("Cannot pass in {:?} to lookup_button", x),
@@ -479,7 +631,12 @@ impl<'a, 'b> Compiler<'a, 'b> {
         // to do this, we need to do all of the fun lookup rules with precedences
         // 1. look under private and public
         // 2. look under aliases
-        match self.lookup_button(button_identifier, context, LookupButtonType::ReferenceAt) {
+        match self.lookup_button(
+            button_identifier,
+            context,
+            LookupButtonType::ReferenceAt,
+            false,
+        ) {
             NodeIndexOrButton::Button(x) => x,
             _ => unreachable!("lookup_button must return ReferenceAt"),
         }
@@ -495,7 +652,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
     ) -> ProcessedButton<'a> {
         use Rule as R;
 
-        let processed_string = {
+        let processed_button = {
             match pair.as_rule() {
                 // tap macros and normal buttons do not yet exhibit special behavior
                 r @ (R::tap_macro | R::normal_button) => {
@@ -513,11 +670,11 @@ impl<'a, 'b> Compiler<'a, 'b> {
                     for child in pair.into_inner() {
                         num_children += 1;
 
-                        string_buffer.push_str(&self.process_inner_button_pair(
-                            original_button_index,
-                            child,
-                            context,
-                        )?);
+                        string_buffer.push_str(
+                            &self
+                                .process_inner_button_pair(original_button_index, child, context)?
+                                .0,
+                        );
                         string_buffer.push(' ');
                     }
 
@@ -528,12 +685,16 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
                     string_buffer.push(')');
 
-                    MaybeOwnedString::Owned(string_buffer)
+                    create_kbd_only_button(MaybeOwnedString::Owned(string_buffer))
                 }
                 R::button_alias | R::reference => {
                     // have to clone pair so we can use it in case of errors
-                    let resolution =
-                        self.lookup_button(pair.clone(), context, LookupButtonType::NodeIndex);
+                    let resolution = self.lookup_button(
+                        pair.clone(),
+                        context,
+                        LookupButtonType::NodeIndex,
+                        false,
+                    );
 
                     match resolution {
                         NodeIndexOrButton::Index(other_index) => {
@@ -541,6 +702,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                             let processed_button = self
                                 .alias_dependency_graph
                                 .lookup_node_by_index(other_index);
+
                             if processed_button.is_unprocessed() {
                                 let _ = processed_button.process(|pair| {
                                     self.process_button_pair(None, pair, context)
@@ -552,12 +714,12 @@ impl<'a, 'b> Compiler<'a, 'b> {
                                     .add_dep_by_index(index, other_index);
                             };
 
-                            MaybeOwnedString::Owned(format!(
+                            create_kbd_only_button(MaybeOwnedString::Owned(format!(
                                 "@{}",
                                 self.alias_dependency_graph
                                     .lookup_key_by_index(&other_index)
                                     .expect("Index must be present in graph")
-                            ))
+                            )))
                         }
                         NodeIndexOrButton::Button(button) => {
                             // this only happens when lookup_button throws an error
@@ -566,32 +728,149 @@ impl<'a, 'b> Compiler<'a, 'b> {
                         }
                     }
                 }
-                R::variable_reference => {
-                    self.error("unimplemented feature used")
-                        .add_message(Message::from_pest_span(
-                            &pair.as_span(),
-                            "variable references are not yet supported",
-                        ));
+                R::constant_reference => {
+                    let identifier = pair
+                        .into_inner()
+                        .next()
+                        .expect("Constant references must have an inner reference type")
+                        .into_inner()
+                        .next()
+                        .expect("Constant references must have an inner identifier");
 
-                    bail!("unsupported operation")
+                    // TODO: repeated code #constant_reference
+                    let lookup =
+                        // NOTE: not expecting a constant this time
+                        self.lookup_button(identifier, context, LookupButtonType::NodeIndex, false);
+
+                    if let NodeIndexOrButton::Index(index) = lookup {
+                        self.alias_dependency_graph
+                            .lookup_node_by_index(index)
+                            .unwrap_processed_ref()
+                            .as_ref()
+                            .map(|(string, value_type)| (string.clone(), value_type.clone()))
+                            // throw away the error because we already reported it
+                            .map_err(|_| eyre!("Placeholder error"))
+                    } else {
+                        bail!("")
+                    }
                 }
-                R::normal_button_non_keyword => {
-                    MaybeOwnedString::Borrowed(pair.as_str().trim_end())
-                }
+                // we can create a constant-only button because the contents of the button will
+                // immediately be merged into the outer button.
+                // as a result, the actual type of this button is irrelevant.
+                R::normal_button_non_keyword => create_constant_only_button(
+                    MaybeOwnedString::Borrowed(pair.as_str().trim_end()),
+                    false,
+                ),
+                R::double_quoted_string => self.process_double_quoted_string(pair, context),
                 x => unreachable!("Cannot have {:?} in `button`", x),
             }
         };
 
-        Ok(processed_string)
+        processed_button
     }
 
-    fn process_double_quoted_string(&self, pair: Pair<'a>) -> ProcessedButton<'a> {
-        let inner_rule = pair
-            .into_inner()
-            .next()
-            .expect("Single quoted strings must have inner text");
+    fn process_double_quoted_string(
+        &self,
+        pair: Pair<'a>,
+        context: &ButtonContext,
+    ) -> ProcessedButton<'a> {
+        // subtract 2 for double quotes on both sides
+        let original_string_length = pair.as_str().len() - 2;
 
-        Ok(MaybeOwnedString::Borrowed(inner_rule.as_str()))
+        let mut inner_elements = pair.clone().into_inner();
+
+        let first_inner = inner_elements
+            .next()
+            .expect("Double quoted strings must have inner text");
+
+        // only do a borrowed Cow if possible; we have a double quoted string with no interpolation
+        // at all
+        if matches!(first_inner.as_rule(), Rule::double_quoted_string_inner_text)
+            && inner_elements.peek().is_none()
+        {
+            create_constant_only_button(MaybeOwnedString::Borrowed(pair.as_str()), true)
+        } else {
+            let starting_capacity = (original_string_length as f32 * 1.5) as usize;
+            let mut string_buffer = String::with_capacity(starting_capacity);
+
+            string_buffer.push('"');
+
+            let mut process_inner_string = |pair: Pair<'a>| -> color_eyre::eyre::Result<()> {
+                match pair.as_rule() {
+                    Rule::double_quoted_string_inner_text => string_buffer.push_str(pair.as_str()),
+                    Rule::user_constant_reference => {
+                        let identifier = pair
+                            .into_inner()
+                            .next()
+                            .expect("Constant references must have inner identifiers");
+
+                        let result = self.lookup_button(
+                            identifier.clone(),
+                            &context,
+                            LookupButtonType::NodeIndex,
+                            true,
+                        );
+
+                        match result {
+                            NodeIndexOrButton::Index(index) => {
+                                let value = self.alias_dependency_graph.lookup_node_by_index(index);
+                                if value.is_unprocessed() {
+                                    value.process(|pair| {
+                                        self.process_button_pair(
+                                            Some(identifier.as_str()),
+                                            pair,
+                                            &context,
+                                        )
+                                    })?;
+                                }
+
+                                let processed_button = value.unwrap_processed_ref();
+
+                                match processed_button.as_ref() {
+                                    Ok((string, rvalue_info)) => {
+                                        if rvalue_info.is_valid_constant() {
+                                            if rvalue_info.is_quoted() {
+                                                // skip the outer quotes
+                                                string_buffer.push_str(&string[1..string.len() - 1])
+                                            } else {
+                                                string_buffer.push_str(string.as_ref())
+                                            }
+                                        } else {
+                                            self.error("mismatched types").add_message(
+                                                Message::from_pest_span(
+                                                    &identifier.as_span(),
+                                                    "expected constant, found lisp button",
+                                                ),
+                                            )
+                                            .add_note("only numbers and strings may be interpolated using the $ syntax");
+
+                                            bail!("Expected constant, got button")
+                                        }
+                                    }
+                                    Err(_) => bail!("Variable dependency failed"),
+                                }
+                            }
+                            _ => bail!("Could not resolve variable"),
+                        }
+                    }
+                    Rule::escaped_dollar => {
+                        string_buffer.push_str("$")
+                    }
+                    x => panic!("Invalid inner double quoted string rule: {:?}", x),
+                };
+
+                Ok(())
+            };
+
+            process_inner_string(first_inner)?;
+            for inner in inner_elements {
+                process_inner_string(inner)?;
+            }
+
+            string_buffer.push('"');
+
+            create_constant_only_button(MaybeOwnedString::Owned(string_buffer), true)
+        }
     }
 
     fn process_single_quoted_string(&self, pair: Pair<'a>) -> ProcessedButton<'a> {
@@ -601,7 +880,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
             .expect("Single quoted strings must have inner text");
 
         if let Some(keycode) = normalize_keycode(inner_rule.as_str()) {
-            Ok(MaybeOwnedString::Borrowed(keycode))
+            create_kbd_only_button(MaybeOwnedString::Borrowed(keycode))
         } else {
             self.error("invalid keycode")
                 .add_message(Message::from_pest_span(
@@ -637,8 +916,6 @@ impl<'a, 'b> Compiler<'a, 'b> {
                             .get(*name)
                             .expect("Button name must be valid");
 
-                        eprintln!("Looking for {} in layer: {}", button_name, *name);
-
                         layer
                             .aliases
                             // MISTAKE: got `name` instead of button_name
@@ -665,13 +942,13 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 self.process_inner_button_pair(original_button_index, inner_rule, context)
             }
             R::single_quoted_string => self.process_single_quoted_string(pair),
-            R::double_quoted_string => self.process_double_quoted_string(pair),
+            R::double_quoted_string => self.process_double_quoted_string(pair, context),
             R::identifier | R::reference => {
                 // OPTIMIZE: do not repeat the work here; abstract so that we can get the
                 // alias and the node index at the same time
                 let other_index =
                     // OPTIMIZE: related: do not clone the pair here
-                    match self.lookup_button(pair.clone(), context, LookupButtonType::NodeIndex) {
+                    match self.lookup_button(pair.clone(), context, LookupButtonType::NodeIndex, false) {
                         NodeIndexOrButton::Index(index) => index,
                         NodeIndexOrButton::Button(button) => {
                             return Err(button.expect_err("Since we passed in LookupButtonType::Index for the last parameter, lookup_button must only return a Button in case of errors"))
@@ -690,6 +967,44 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 };
 
                 alias_string
+            }
+            R::number => create_either_button(MaybeOwnedString::Borrowed(pair.as_str())),
+            R::constant_reference => {
+                let inner = pair
+                    .into_inner()
+                    .next()
+                    .expect("Constant reference must have an internal type");
+                match inner.as_rule() {
+                    R::user_constant_reference => {
+                        // TODO: repeated code #constant_reference
+                        let identifier = inner
+                            .into_inner()
+                            .next()
+                            .expect("User constant reference must contain an identifier");
+
+                        assert_eq!(identifier.as_rule(), R::identifier);
+
+                        let lookup = self.lookup_button(
+                            identifier,
+                            context,
+                            LookupButtonType::NodeIndex,
+                            true,
+                        );
+
+                        if let NodeIndexOrButton::Index(index) = lookup {
+                            self.alias_dependency_graph
+                                .lookup_node_by_index(index)
+                                .unwrap_processed_ref()
+                                .as_ref()
+                                .map(|(string, value_type)| (string.clone(), value_type.clone()))
+                                // throw away the error because we already reported it
+                                .map_err(|_| eyre!("Placeholder error"))
+                        } else {
+                            bail!("")
+                        }
+                    }
+                    _ => unimplemented!(),
+                }
             }
             x => {
                 // TODO: handle this at the parser level
@@ -719,7 +1034,6 @@ impl<'a, 'b> Compiler<'a, 'b> {
     pub fn compile_string(mut self) -> color_eyre::Result<String> {
         // read configuration into Configuration struct
         let configuration = self.try_parse_configuration()?;
-        eprintln!("Configuration: {:#?}", configuration);
 
         // we use used_keys to derive the source layer
         let mut used_keys = BTreeSet::default();
@@ -797,8 +1111,6 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 }
             }
         }
-
-        eprintln!("{:#?}", used_keys);
 
         let fallthrough_layer = ProcessedLayer::new(
             used_keys
@@ -883,19 +1195,18 @@ impl<'a, 'b> Compiler<'a, 'b> {
             let layer = state.parser_layers.get(layer_name).unwrap();
 
             let mut parents = layer.parent_name.iter();
-            let mut new_layer: ProcessedLayer<ProcessedButton> = if let Some(parent) =
-                parents.next()
-            {
-                process_layer(processed_layers, state, parent.as_str()).clone()
-            } else {
-                // NOTE: this usage of `transmute` is justified earlier in the function
-                unsafe {
-                    std::mem::transmute::<&ProcessedLayer<()>, &ProcessedLayer<ProcessedButton>>(
-                        &state.default_parent,
-                    )
-                }
-                .clone()
-            };
+            let mut new_layer: ProcessedLayer<ProcessedButton> =
+                if let Some(parent) = parents.next() {
+                    process_layer(processed_layers, state, parent.as_str()).clone()
+                } else {
+                    // NOTE: this usage of `transmute` is justified earlier in the function
+                    unsafe {
+                        std::mem::transmute::<&ProcessedLayer<()>, &ProcessedLayer<ProcessedButton>>(
+                            &state.default_parent,
+                        )
+                    }
+                    .clone()
+                };
 
             for parent_name in parents {
                 // do inheritance
@@ -918,6 +1229,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                             .unwrap_processed_ref()
                             .as_ref()
                             .expect("Keys must be successfully processed")
+                            .0
                             .as_ref(),
                     )
                 });
