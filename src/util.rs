@@ -71,6 +71,12 @@ impl StringStack {
 }
 
 mod tests {
+    // the linter reports that this import is unused.
+    // however, there is a bug in the language server that makes the tests appear to fail to
+    // compile when
+    // the line is removed, when the compiler has no problem with it.
+    // to satisfy the language server, this import is preserved and the warning is silenced.
+    #[allow(unused_imports)]
     use super::StringStack;
 
     #[test]
