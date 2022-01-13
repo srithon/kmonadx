@@ -396,7 +396,6 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 match &$node_index_or_button {
                     NodeIndexOrButton::Index(index) => {
                         let lazy_button = self.alias_dependency_graph.lookup_node_by_index(*index);
-                        // eprintln!("Looked up {:#?}", lazy_button);
                         let unwrapped = lazy_button.unwrap_processed_ref();
 
                         _verify_button_type_helper!(unwrapped.as_ref(), $pair)
@@ -604,13 +603,6 @@ impl<'a, 'b> Compiler<'a, 'b> {
                         "alias"
                     };
 
-                    eprintln!(
-                        "couldnt find {}: {} in context: {}",
-                        find_target,
-                        button_identifier.as_str(),
-                        context
-                    );
-
                     let error_handle = self
                         .error(format!("could not resolve {}", find_target))
                         .add_message(Message::from_pest_span_no_text(
@@ -785,8 +777,6 @@ impl<'a, 'b> Compiler<'a, 'b> {
         // subtract 2 for double quotes on both sides
         let original_string_length = pair.as_str().len() - 2;
 
-        eprintln!("Processing dqs: {}", pair.as_str());
-
         let mut inner_elements = pair.clone().into_inner();
 
         let first_inner = inner_elements
@@ -926,8 +916,6 @@ impl<'a, 'b> Compiler<'a, 'b> {
                             .get(*name)
                             .expect("Button name must be valid");
 
-                        eprintln!("Looking for {} in layer: {}", button_name, *name);
-
                         layer
                             .aliases
                             // MISTAKE: got `name` instead of button_name
@@ -1046,7 +1034,6 @@ impl<'a, 'b> Compiler<'a, 'b> {
     pub fn compile_string(mut self) -> color_eyre::Result<String> {
         // read configuration into Configuration struct
         let configuration = self.try_parse_configuration()?;
-        eprintln!("Configuration: {:#?}", configuration);
 
         // we use used_keys to derive the source layer
         let mut used_keys = BTreeSet::default();
@@ -1124,8 +1111,6 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 }
             }
         }
-
-        eprintln!("{:#?}", used_keys);
 
         let fallthrough_layer = ProcessedLayer::new(
             used_keys
