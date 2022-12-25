@@ -109,7 +109,7 @@ internal_button = _{
 //
 // tap macros start with #, so we need to avoid consuming that
 normal_button_non_keyword = {
-  (!("(" | ")" | "&" | "$" | "@" | "\"") ~ ANY)+
+  (!("(" | ")" | "&" | "$" | "@" | "\"" | "#") ~ ANY)+
 }
 
 // this rule matches parentheses
