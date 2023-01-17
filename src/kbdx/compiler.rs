@@ -762,6 +762,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                     false,
                 ),
                 R::double_quoted_string => self.process_double_quoted_string(pair, context),
+                R::single_quoted_string => self.process_single_quoted_string(pair),
                 x => unreachable!("Cannot have {:?} in `button`", x),
             }
         };
