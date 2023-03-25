@@ -1,3 +1,8 @@
+# 0.3.2
+
+- Fix bugs with tap macro parsing
+- Fix single quoted strings not compiling correctly in certain cases
+
 # 0.3.1
 
 - Program now sets the exit code properly instead of printing it out
