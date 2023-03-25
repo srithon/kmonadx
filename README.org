@@ -16,3 +16,5 @@ The *Target* documentation is an example configuration which contains all the fu
 #+end_center
 
 To see the transpiled version of the functional documentation, see [[./compiled_functional_tutorial.kbd][compiled_functional_tutorial.kbd]]
+
+For a real-life example of how KMonadX can be used, see [[https://github.com/srithon/kmonad-config][my personal configuration]], which is a literate config written in the Org format.
