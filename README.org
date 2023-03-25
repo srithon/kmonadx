@@ -16,10 +16,3 @@ The *Target* documentation is an example configuration which contains all the fu
 #+end_center
 
 To see the transpiled version of the functional documentation, see [[./compiled_functional_tutorial.kbd][compiled_functional_tutorial.kbd]]
-* TODO Minimal Example
-This section will show a very condensed version of the documentation that shows what KMonadX is capable of doing.
-This /may/ be split into *Target* and *Functional* sections.
-* TODO Installation
-This section will give installation instructions, both from source and from GitHub releases.
-* TODO Development
-Go through branch naming, issues, pull requests, etc.
