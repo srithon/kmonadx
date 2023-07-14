@@ -465,10 +465,6 @@ impl<'a, 'b> Compiler<'a, 'b> {
                     if let Some((key_index, access_modifier)) =
                         layer.aliases.get(reference_identifier.as_str())
                     {
-                        if matches!(return_type, NodeIndex) {
-                            return Index(*key_index);
-                        }
-
                         let button = self.alias_dependency_graph.lookup_node_by_index(*key_index);
 
                         // process the button
@@ -496,7 +492,11 @@ impl<'a, 'b> Compiler<'a, 'b> {
                                 reference_identifier.as_str()
                             ));
 
-                            Button(create_kbd_only_button(cow))
+                            if matches!(return_type, NodeIndex) {
+                                Index(*key_index)
+                            } else {
+                                Button(create_kbd_only_button(cow))
+                            }
                         } else {
                             self.error(format!(
                                 "button `{}` is private",
@@ -704,6 +704,8 @@ impl<'a, 'b> Compiler<'a, 'b> {
                                 .lookup_node_by_index(other_index);
 
                             if processed_button.is_unprocessed() {
+                                assert!(pair.as_rule() != R::reference);
+
                                 let _ = processed_button.process(|pair| {
                                     self.process_button_pair(None, pair, context)
                                 })?;
