@@ -1,3 +1,9 @@
+# 0.3.3
+
+- Fix bug where single alphabet characters would be automatically capitalized when used as rvalues
+    - Outside of the `defsrc` block, KMonad interprets capital letters as being shifted
+- Fix finnicky bug where using layer references which pointed to buttons which themselves referred to other aliases within their own layer, would cause compilation to fail ~50% of the time
+
 # 0.3.2
 
 - Fix bugs with tap macro parsing
