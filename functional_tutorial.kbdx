@@ -50,6 +50,14 @@ r = run:enter
 s = scroll:enter
 v = volume:enter
 
+# you can put global aliases in the "aliases" table if you do not need a whole layer
+[aliases]
+window-switcher = (cmd-button "rofi -noplugins -modi window -show window -lines 5 --normal-window")
+
+# every "instance" of "aliases" will be merged into one
+[aliases]
+discord = (cmd-button "wmctrl -a discord || /usr/bin/Discord")
+
 [leader]
 # "block" because we do not want keys to fallthrough to the next layer
 #
@@ -108,14 +116,6 @@ enter = (layer-switch homerow-mods)
 # don't need to prefix with an @ for simple rvalue assignments
 caps = lctrl-or-escape
 lmet = exit
-
-# you can put global aliases in the "aliases" table if you do not need a whole layer
-[aliases]
-window-switcher = (cmd-button "rofi -noplugins -modi window -show window -lines 5 --normal-window")
-
-# every "instance" of "aliases" will be merged into one
-[aliases]
-discord = (cmd-button "wmctrl -a discord || /usr/bin/Discord")
 
 [run]
 [[public]]
