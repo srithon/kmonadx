@@ -7,6 +7,135 @@
 KMonad is an incredibly powerful tool, but its configuration can be quite verbose, and the base language lacks several features which could drasticly reduce boilerplate.
 Layer inheritance and declarative bindings (~i -> j~) are 2 of those features which could easily be built on top of the language; rather than attempting to modify the core language, potentially adding unnecessary complexity, creating a language that transpiled to ~kbd~ would be much simpler, much more maintainable and would allow for a lot more syntactic flexibility.
 From this idea came ~kbdx~, a TOML-like language which aims to be expressive, readable and concise, and the ~kmonadx~ CLI tool for transpiling it to ~kbd~.
+* Feature Overview
+Here's an overview of the main features of the ~kbdx~ language.
+If the following features interest you, please proceed to the [[Documentation]] section where you can find a complete example configuration (with much more detail), as well as a link to my personal configuration for further inspiration.
+** Declarative bindings
+Rather than having to define a layer with every key from the source layer, you only need to define the keys you want to override!
+The rest will be _inherited_ from the parent layers; more on that later.
+#+begin_src toml
+[layer]
+[[keys]]
+a = 'b'
+b = 'c'
+#+end_src
+** Layer inheritance
+Layers can include keys from other layers!
+#+begin_src toml
+[layer1]
+[[keys]]
+a = 'b'
+
+[layer2]
+[[keys]]
+b = 'c'
+
+[layer3]
+parent = { layer1, layer2 }
+[[keys]]
+# a = 'b'
+# b = 'c'
+#+end_src
+
+If ~layer2~ defined a key for ~a~, it would override the binding from ~layer1~, since multi-inheritance is sequential.
+** Access modifiers for aliases
+Buttons defined in layers can be ~private~ or ~public~; ~private~ buttons are only accessible from within the layer, while ~public~ buttons can be accessed from outside the layer!
+#+begin_src toml
+[layer1]
+[[private]]
+# this button cannot be accessed from outside the layer
+private-button = (tap-hold 5 'a' 'b')
+[[public]]
+public-button = (tap-hold 5 'b' 'c')
+[[keys]]
+a = private-button
+b = public-button
+
+[layer2]
+[[keys]]
+# this would be a compilation error, since we cannot access `private-button` outside of `layer1`!
+# a = layer1:private-button
+
+b = layer1:public-button
+#+end_src
+
+You can also define global buttons in the special ~aliases~ table.
+#+begin_src toml
+[aliases]
+global-button = (tap-hold-next-release 100 'a' 'lshift')
+
+[layer1]
+[[keys]]
+a = global-button
+#+end_src
+** Layer-namespaced aliases
+You can reuse names in different layers, since they are namespaced to the layer!
+#+begin_src toml
+[layer1]
+[[public]]
+some-button = 'a'
+[[keys]]
+a = some-button
+
+[layer2]
+[[public]]
+some-button = 'b'
+[[keys]]
+# because of the context, this binding refers to `layer2:some-button`!
+b = some-button
+
+[layer3]
+[[keys]]
+a = layer1:some-button
+b = layer2:some-button
+#+end_src
+** Topographical sorting of aliases
+Unlike in KBD, you don't have to worry about the order of your bindings, since the compiler will automatically sort them in the output based on which aliases require others!
+#+begin_src toml
+[aliases]
+button1 = (tap-hold 100 @button2 @button3)
+button2 = (tap-hold 100 @button3 @button4)
+button3 = 'a'
+button4 = 'b'
+#+end_src
+
+Note that we still cannot have circular dependencies (KMonad wouldn't be able to parse the configuration); if you do you will get a compilation error.
+Thus, you /cannot/ do anything like this:
+#+begin_src toml
+[aliases]
+button1 = (tap-hold 100 @button2)
+button2 = (tap-hold 100 @button1)
+#+end_src
+** Numeric and string constants with interpolation
+You can define constants and interpolate them into Lisp buttons!
+#+begin_src toml
+[layer1]
+[[private]]
+tap-hold-delay = 50
+github = "srithon"
+[[public]]
+goto-github = (cmd-button "firefox github.com/$github")
+tap-hold-button = (tap-hold $tap-hold-delay 'a' 'b')
+[[keys]]
+g = goto-github
+t = tap-hold-button
+#+end_src
+** Source layer derived from bindings
+Unlike in KBD, where you must explicitly define a ~src~ layer which contains all of the keys on your keyboard, KMonadX will determine the ~keys~ that you use in your configuration, and will generate the source layer based on that!
+Note that this /may/ have some consequences with certain KMonad buttons that react to "any" key events, since they may not work with keys that are not present in the source layer.
+
+If you have any issues that arise from this, consider defining your own source layer like this:
+#+begin_src toml
+[src-layer]
+[[keys]]
+a = 'a'
+b = 'b'
+c = 'c'
+...
+#+end_src
+
+Note that this layer can have any name; the point is that it tells the compiler that the keys are used.
+Also, please file an issue so that I know when it's breaking, and we can figure out the best way to fix it.
 * Documentation
 See the [[./functional_tutorial.kbdx][Functional Documentation]] for an example configuration which contains the functionality KMonadX /currently/ has, meaning that it compiles correctly on ~HEAD~.
 See [[./planned_features.org][Planned Features]] for features which may be implemented in the future.
