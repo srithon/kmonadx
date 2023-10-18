@@ -89,14 +89,14 @@ identifier_list = !{
 }
 
 button = {
-  tap_macro | button_alias | normal_button | at_prefixed_reference
+  tap_macro | at_prefixed_reference | button_alias | normal_button
 }
 
 // the silent variant of "button"
 // when we are processing our buttons, we do not want to deal with "button"
 // wrappers around every button
 internal_button = _{
-  tap_macro | button_alias | normal_button | at_prefixed_reference
+  tap_macro | at_prefixed_reference | button_alias | normal_button
 }
 
 // a bunch of non-parentheses and non-& characters
