@@ -103,9 +103,6 @@ lmet = 'LeftMeta'
 # kbdx supports double quoted strings and numbers as constant rvalues.
 # these can then be interpolated in buttons.
 lctrl-hold-delay = 125
-# SYNTAX
-# <button name> = <lisp expression>
-# the syntax for defining buttons is unchanged from kbd
 # in this button, the `$lctrl-hold-delay` constant is used in place of the number
 lctrl-or-escape = (tap-hold-next-release $lctrl-hold-delay esc lctl)
 
@@ -125,18 +122,10 @@ runner = (cmd-button "~/.config/kmonad/runner/runner.sh")
 # however, there WILL still be collision if you define 2 buttons with the same name WITHIN a layer or within the global [aliases] table
 #
 # tap macro syntactic sugar works just like in kbd
-# also, to use named buttons in other named button definitions, you need to use the @ symbol so kbdx knows to replace it
-# using @ is not necessary in [[keys]]
 enter = #(@runner (layer-add run))
-# buttons defined under [[private]] CANNOT be accessed using the "<layer name>:<button name>" syntax
-# you can use [[private]] for layer-internal buttons
 [[private]]
 exit = #((layer-rem run) (cmd-button "killall st"))
 [[keys]]
-# right-hand-side value resolution
-# 1. see if it is a direct lisp button expression
-# 2. if not a button, look under [[private]] and [[public]]
-# 3. look under aliases
 lmet = exit
 
 [aliases]
@@ -174,15 +163,11 @@ h = left
 j = down
 k = up
 l = right
-# assign both the left control and caps lock keys to speed-down
-# we use curly braces because square brackets are already taken by the TOML syntax
-# lists do NOT accept trailing commas
 caps = speed-down
 lsft = speed-up
 
 tab = scroll.arrow-keys:enter
 
-# use leader key or the enter key to exit
 lmet = exit
 s = exit
 
@@ -202,8 +187,6 @@ enter = (layer-add scroll.arrow-keys)
 [[private]]
 exit = (layer-rem scroll.arrow-keys)
 [[keys]]
-# to explicitly refer to the KEY, put it in single quotes
-# even if there were buttons defined with the same name, as long as you reference them with single quotes there will not be a conflict
 lmet = exit
 
 h = 'left'
