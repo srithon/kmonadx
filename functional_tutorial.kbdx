@@ -28,7 +28,7 @@ starting-layer = base
 
 # behavior: if you want every layer to include mappings for every key to itself, but without falling through to the base layer
 # I can't think of a real usecase for changing the default parent away from "default", but this setting is here if you want it
-# default-parent = source
+# default-parent = default
 
 # any heading that contains a "keys" item is a layer
 # otherwise it is used purely for organization
