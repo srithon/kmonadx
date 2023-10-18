@@ -1,0 +1,21 @@
+#+title: Planned Features
+
+* Lists as LValues
+When you want to bind multiple keys to the same rvalue, it would be nice to be able to do it in one line.
+#+begin_src toml
+# assign both the left control and caps lock keys to speed-down
+# we use curly braces because square brackets are already taken by the TOML syntax
+{lctl, caps} = speed-down
+#+end_src
+
+* Layer References
+It would be nice to be able to reference the current layer name (at compilation time), for instance when creating ~enter~ and ~exit~ buttons.
+#+begin_src toml
+[scroll.arrow-keys]
+[[public]]
+# &layer resolves to `scroll.arrow-keys` based on context
+enter = (layer-add &layer)
+[[private]]
+exit = (layer-rem &layer)
+#+end_src
+

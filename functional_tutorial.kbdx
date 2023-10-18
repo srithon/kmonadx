@@ -3,12 +3,17 @@
 # ^ sets syntax highlighting rules for vim and emacs
 #
 # kbdx provides 4 implicit layers which can be inherited from
-# "source": a layer where each key is mapped to itself. This is useful for the starting layer
-# "fallthrough": a layer equivalent to ALL underscores, so all keypresses go through to the next layer
-# "block": a layer equivalent to ALL "XX"'s, so all keypresses do NOT go through to the next layer
-# "default": this is assigned to "fallthrough" if configuration.fallthrough = true, and "block" otherwise. If a layer omits its parent, it will inherit from this layer
+# 1. "source": a layer where each key is mapped to itself. This is useful for
+# the starting layer.
+# 2. "fallthrough": a layer equivalent to ALL underscores, so all keypresses go
+# through to the next layer.
+# 3. "block": a layer equivalent to ALL "XX"'s, so all keypresses do NOT go
+# through to the next layer.
+# 4. "default": this is assigned to "fallthrough" if configuration.fallthrough
+# = true, and "block" otherwise. If a layer omits its parent, it will inherit
+# from this layer.
 #
-# regardless of what you put in configuration.fallthrough, the transpiled kbd file will always have fallthrough set to true
+# regardless of what you put in configuration.fallthrough, the transpiled kbd file will always have fallthrough set to true.
 # later on in the document, you will see why this is useful
 
 [configuration]
@@ -26,25 +31,29 @@ allow-cmd = true
 # indicate which layer you want to be in when KMonad launches
 starting-layer = base
 
-# behavior: if you want every layer to include mappings for every key to itself, but without falling through to the base layer
-# I can't think of a real usecase for changing the default parent away from "default", but this setting is here if you want it
-# default-parent = source
+# behavior: if you want every layer to include mappings from one of the 4
+#   implicit layers (instead of `default`). I can't think of a real usecase for
+#   changing the default parent away from "default", but this setting is here if
+#   you want it.
+# default-parent = default
 
 # any heading that contains a "keys" item is a layer
 # otherwise it is used purely for organization
 [base]
-# you need this to be able to type normally
-# if you do not specify this, you will get an error
-parent = source
-# [base.keys] defines the different keymappings for the layer
-# like in TOML, you could also mark this section with [[keys]]
-# this syntax is just used here to show that it's allowed
+# [base.keys] defines the different keymappings for the layer.
+# you could also mark this section with [[keys]].
+# this syntax is just used here to show that it's allowed.
 [base.keys]
-# use the "<layer name>:<button name>" syntax to reference buttons defined under layers
+# use the "<layer name>:<button name>" syntax to reference buttons defined under layers.
+# unlike in stock KBD (KMonad's config format), you can reference aliases that appear later in the document.
+# NOTE: you can only omit the @ for aliases in _simple_ [[keys]] bindings, meaning that the r-value is not a Lisp expression
 lmet = leader:enter
+# here's a counter-example: to interpolate aliases into Lisp expressions, the @ is required.
+backslash = (tap-hold 50 @leader:enter XX)
 
-# this is a layer that contains all of the keys for entering the persistent layers
-# it does not define an "enter" button because it is only intended for use with inheritance
+# this is a layer that contains all of the keys for entering the persistent
+# layers. it does not define an "enter" button because it is only intended for
+# use with inheritance.
 [enter-layers]
 # implicit "default" parent
 # parent = default
@@ -53,31 +62,47 @@ r = run:enter
 s = scroll:enter
 v = volume:enter
 
+# you can put global aliases in the "aliases" table if you do not need a whole layer
+[aliases]
+window-switcher = (cmd-button "rofi -noplugins -modi window -show window -lines 5 --normal-window")
+
+# every "instance" of "aliases" will be merged into one
+[aliases]
+discord = (cmd-button "wmctrl -a discord || /usr/bin/Discord")
+
 [leader]
-# "block" because we do not want keys to fallthrough to the next layer
+# we start with "block" because we do not want keys to fallthrough to the next layer
 #
-# "enter-layers" is a custom layer defining the keys for entering other layers
+# kmonadx allows for multiple inheritance with the { <layer name>, ... }
+# syntax, allowing you to effectively compose layers from other layers.
+# inheritance works sequentially, with layers later in the "parent" list
+# overriding keys defined earlier.
 #
-# kmonadx allows for multiple inheritance with the { <layer name>, ... } syntax, allowing you to effectively compose layers from other layers
-# inheritance works sequentially, with layers later in the "parent" list overriding keys defined earlier
+# inheritance works as you might expect; X's and _'s inherited from the "block"
+# and "fallthrough" layers do /not/ override explicit bindings. however, X's
+# and _'s that are _explicitly_ defined (and not just inherited) DO carry over,
+# overriding keys from previous parents.
 #
-# NOTE that with inheritance, X's and _'s inherited from "block" or "fallthrough" do NOT get passed down
-# this would be very counter-intuitive, as every layer inherits X's and _'s for the keys that it does not define, effectively overriding every single previously defined key
-#
-# X's and _'s that are explicitly defined (and not just inherited) DO carry over, overriding keys from previous parents
-#
-# in this example, the "leader" layer inherits "block", starting with all X's
-# then, the keys defined in "enter-layers" override the X's from "block"
-# after that, any key defined in [leader.keys] will override THOSE
+# in this example, the "leader" layer inherits "block", starting with all X's.
+# then, the keys defined in "enter-layers" override the X's from "block".
+# after that, any key defined in [[keys]] (alternatively, [leader.keys]) will
+# override THOSE.
 parent = { block, enter-layers }
+# layers can choose which buttons they want to expose to other layers.
+# buttons defined under [[public]] can be accessed using the aforementioned
+# "<layer name>:<button name>" syntax, while [[private]] buttons can only be
+# accessed within the layer.
 [[private]]
 leader_next = (around-next (layer-toggle leader))
 [[public]]
 enter = (tap-hold-next-release 250 @leader_next lmet)
 [[keys]]
-# you can reference aliases that appear later in the document
 h = homerow-mods:enter
 q = window-switcher
+# here, `discord` is a button defined in a global [aliases] block, so we can
+# reference it without specifying a layer. note that if there were another `discord`
+# button defined internally within this layer, this binding would resolve to
+# that button instead.
 d = discord
 # to reference regular keys, use single quotes
 lmet = 'LeftMeta'
@@ -92,15 +117,10 @@ lmet = 'LeftMeta'
 # ...
 
 [homerow-mods]
-# layers can choose which buttons they want to expose to the outside
-# buttons defined under [[public]] can be accessed using the aforementioned "<layer name>:<button name>" syntax
 [[private]]
 # kbdx supports double quoted strings and numbers as constant rvalues.
 # these can then be interpolated in buttons.
 lctrl-hold-delay = 125
-# SYNTAX
-# <button name> = <lisp expression>
-# the syntax for defining buttons is unchanged from kbd
 # in this button, the `$lctrl-hold-delay` constant is used in place of the number
 lctrl-or-escape = (tap-hold-next-release $lctrl-hold-delay esc lctl)
 
@@ -108,38 +128,25 @@ exit = (layer-switch base)
 [[public]]
 enter = (layer-switch homerow-mods)
 [[keys]]
-# don't need to prefix with an @ for simple rvalue assignments
+# as mentioned earlier, we don't need to prefix with an @ for simple rvalue
+# assignments. also notice that because the specified buttons come from the
+# current layer, we don't need to use the `layer:button` syntax.
 caps = lctrl-or-escape
 lmet = exit
-
-# you can put global aliases in the "aliases" table if you do not need a whole layer
-[aliases]
-window-switcher = (cmd-button "rofi -noplugins -modi window -show window -lines 5 --normal-window")
-
-# every "instance" of "aliases" will be merged into one
-[aliases]
-discord = (cmd-button "wmctrl -a discord || /usr/bin/Discord")
 
 [run]
 [[public]]
 runner = (cmd-button "~/.config/kmonad/runner/runner.sh")
-# notice that we already defined an "enter" under the leader layer
-# because buttons defined under layers are namespaced, the 2 do not collide
-# however, there WILL still be collision if you define 2 buttons with the same name WITHIN a layer or within the global [aliases] table
+# notice that we already defined an "enter" under the leader layer.
+# because buttons defined under layers are namespaced, the 2 do not collide.
+# however, there WILL still be collision if you define 2 buttons with the same
+# name WITHIN a layer or within the global [aliases] table.
 #
 # tap macro syntactic sugar works just like in kbd
-# also, to use named buttons in other named button definitions, you need to use the @ symbol so kbdx knows to replace it
-# using @ is not necessary in [[keys]]
 enter = #(@runner (layer-add run))
-# buttons defined under [[private]] CANNOT be accessed using the "<layer name>:<button name>" syntax
-# you can use [[private]] for layer-internal buttons
 [[private]]
 exit = #((layer-rem run) (cmd-button "killall st"))
 [[keys]]
-# right-hand-side value resolution
-# 1. see if it is a direct lisp button expression
-# 2. if not a button, look under [[private]] and [[public]]
-# 3. look under aliases
 lmet = exit
 
 [aliases]
@@ -151,7 +158,8 @@ org-capture = (cmd-button "~/.local/bin/org-capture")
 [scroll]
 # inherit the keys for entering other layers
 # note that this is equivalent to "parent = { default, enter-layers }"
-# all layers implicitly inherit from "default", even when something else is specified
+# all layers implicitly inherit from "default", even when something else is
+# specified.
 parent = enter-layers
 [[public]]
 enter = (layer-add scroll)
@@ -177,15 +185,11 @@ h = left
 j = down
 k = up
 l = right
-# assign both the left control and caps lock keys to speed-down
-# we use curly braces because square brackets are already taken by the TOML syntax
-# lists do NOT accept trailing commas
 caps = speed-down
 lsft = speed-up
 
 tab = scroll.arrow-keys:enter
 
-# use leader key or the enter key to exit
 lmet = exit
 s = exit
 
@@ -193,22 +197,26 @@ s = exit
 # r = run:enter
 # v = volume:enter
 
-# if kbdx does not recognize the subtable name, it is interpreted as a NESTED LAYER
-# nested layers can be referenced using "<parent layer>.<child layer>", and must be FULLY QUALIFIED regardless of the context
-# it is a warning to use a nested layer from outside of the "parent" (hierarchical) layer, but it is allowed
-# this means that even if you are in the context of the scroll layer, you need to reference the arrow-keys layer as scroll:arrow-keys
-# like in standard TOML, this could also be defined as [[arrow-keys]]
-# however, it can be nicer to define it at the base level to avoid an extra set of square brackets
+# if kbdx does not recognize the subtable name, it is interpreted as a NESTED
+# LAYER. nested layers can be referenced using "<parent layer>.<child layer>",
+# and must be FULLY QUALIFIED regardless of the context. it is a warning to use
+# a nested layer from outside of the "parent" (hierarchical) layer, but it is
+# allowed. this means that even if you are in the context of the scroll layer,
+# you need to reference the arrow-keys layer as scroll.arrow-keys. as you may
+# have guessed, this could also be defined as [[arrow-keys]]. however, it can
+# be nicer to define it at the base level to avoid an extra set of square
+# brackets.
 [scroll.arrow-keys]
 [[public]]
 enter = (layer-add scroll.arrow-keys)
 [[private]]
 exit = (layer-rem scroll.arrow-keys)
 [[keys]]
-# to explicitly refer to the KEY, put it in single quotes
-# even if there were buttons defined with the same name, as long as you reference them with single quotes there will not be a conflict
 lmet = exit
 
+# to explicitly refer to the KEY, put it in single quotes. even if there were
+# buttons defined with the same name, as long as you reference them with single
+# quotes there will not be a conflict.
 h = 'left'
 j = 'down'
 k = 'up'
@@ -228,7 +236,8 @@ osd-toggle = (cmd-button "~/.config/kmonad/volume/toggle_osd.sh")
 
 mute = (cmd-button "qdbus org.kde.kglobalaccel /component/kmix invokeShortcut mute")
 
-# to use literal dollar signs in double quoted strings, escape the dollar using a single backslash
+# to use literal dollar signs in double quoted strings, escape the dollar using
+# a single backslash
 log-key = (cmd-button "echo \"Log button pressed!\" > \$ENV_VAR_LOG_FILE")
 [[keys]]
 lmet = exit

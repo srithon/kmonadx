@@ -27,54 +27,35 @@
   run.exit #((layer-rem run) (cmd-button "killall st"))
   run.runner (cmd-button "~/.config/kmonad/runner/runner.sh")
   run.enter #(@run.runner (layer-add run))
-  discord (cmd-button "wmctrl -a discord || /usr/bin/Discord")
-  window-switcher (cmd-button "rofi -noplugins -modi window -show window -lines 5 --normal-window")
   homerow-mods.enter (layer-switch homerow-mods)
   homerow-mods.exit (layer-switch base)
   homerow-mods.lctrl-or-escape (tap-hold-next-release 125  esc lctl)
   leader.leader_next (around-next (layer-toggle leader))
   leader.enter (tap-hold-next-release 250 @leader.leader_next  lmet)
+  discord (cmd-button "wmctrl -a discord || /usr/bin/Discord")
+  window-switcher (cmd-button "rofi -noplugins -modi window -show window -lines 5 --normal-window")
   )
 (defsrc
+  Backslash
   CapsLock
-  D
-  H
-  J
-  K
-  L
   LeftMeta
   LeftShift
-  M
-  Q
-  R
-  S
   Tab
-  V
+  d
+  h
+  j
+  k
+  l
+  m
+  q
+  r
+  s
+  v
   )
 (deflayer base
-  CapsLock
-  D
-  H
-  J
-  K
-  L
+  (tap-hold 50 @leader.enter  XX)
+  _
   @leader.enter
-  LeftShift
-  M
-  Q
-  R
-  S
-  Tab
-  V
-  )
-(deflayer scroll.arrow-keys
-  _
-  _
-  Left
-  Down
-  Up
-  Right
-  @scroll.arrow-keys.exit
   _
   _
   _
@@ -82,28 +63,13 @@
   _
   _
   _
-  )
-(deflayer volume
   _
   _
   _
-  @volume.down
-  @volume.up
-  @volume.log-key
-  @volume.exit
   _
-  @volume.mute
-  @volume.osd-toggle
-  @run.enter
-  @scroll.enter
   _
-  @volume.enter
   )
 (deflayer run
-  _
-  _
-  _
-  _
   _
   _
   @run.exit
@@ -114,22 +80,11 @@
   _
   _
   _
-  )
-(deflayer leader
-  XX
-  @discord
-  @homerow-mods.enter
-  XX
-  XX
-  XX
-  LeftMeta
-  XX
-  XX
-  @window-switcher
-  @run.enter
-  @scroll.enter
-  XX
-  @volume.enter
+  _
+  _
+  _
+  _
+  _
   )
 (deflayer enter-layers
   _
@@ -142,18 +97,49 @@
   _
   _
   _
+  _
+  _
   @run.enter
   @scroll.enter
+  @volume.enter
+  )
+(deflayer scroll.arrow-keys
   _
+  _
+  @scroll.arrow-keys.exit
+  _
+  _
+  _
+  Left
+  Down
+  Up
+  Right
+  _
+  _
+  _
+  _
+  _
+  )
+(deflayer volume
+  _
+  _
+  @volume.exit
+  _
+  _
+  _
+  _
+  @volume.down
+  @volume.up
+  @volume.log-key
+  @volume.mute
+  @volume.osd-toggle
+  @run.enter
+  @scroll.enter
   @volume.enter
   )
 (deflayer homerow-mods
+  _
   @homerow-mods.lctrl-or-escape
-  _
-  _
-  _
-  _
-  _
   @homerow-mods.exit
   _
   _
@@ -162,21 +148,43 @@
   _
   _
   _
+  _
+  _
+  _
+  _
+  _
+  )
+(deflayer leader
+  XX
+  XX
+  LeftMeta
+  XX
+  XX
+  @discord
+  @homerow-mods.enter
+  XX
+  XX
+  XX
+  XX
+  @window-switcher
+  @run.enter
+  @scroll.enter
+  @volume.enter
   )
 (deflayer scroll
+  _
   @scroll.speed-down
+  @scroll.exit
+  @scroll.speed-up
+  @scroll.arrow-keys.enter
   _
   @scroll.left
   @scroll.down
   @scroll.up
   @scroll.right
-  @scroll.exit
-  @scroll.speed-up
   _
   _
   @run.enter
   @scroll.exit
-  @scroll.arrow-keys.enter
   @volume.enter
   )
-
