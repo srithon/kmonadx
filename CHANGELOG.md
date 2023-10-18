@@ -1,3 +1,7 @@
+# 0.3.4
+
+- Fix layer reference parsing within Lispy buttons (`(tap-hold 50 @leader:enter XX)`)
+
 # 0.3.3
 
 - Fix bug where single alphabet characters would be automatically capitalized when used as rvalues
