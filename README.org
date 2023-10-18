@@ -9,7 +9,7 @@ Layer inheritance and declarative bindings (~i -> j~) are 2 of those features wh
 From this idea came ~kbdx~, a TOML-like language which aims to be expressive, readable and concise, and the ~kmonadx~ CLI tool for transpiling it to ~kbd~.
 * Feature Overview
 Here's an overview of the main features of the ~kbdx~ language.
-If the following features interest you, please proceed to the [[Documentation]] section where you can find a complete example configuration (with much more detail), as well as a link to my personal configuration for further inspiration.
+If the following features interest you, please proceed to the [[#documentation][Documentation]] section where you can find a complete example configuration (with much more detail), as well as a link to my personal configuration for further inspiration.
 ** Declarative bindings
 Rather than having to define a layer with every key from the source layer, you only need to define the keys you want to override!
 The rest will be _inherited_ from the parent layers; more on that later.
