@@ -34,8 +34,8 @@ starting-layer = base
 # otherwise it is used purely for organization
 [base]
 # [base.keys] defines the different keymappings for the layer
-# like in TOML, you could also mark this section with [[keys]]
 # this syntax is just used here to show that it's allowed
+# you could also mark this section with [[keys]].
 [base.keys]
 # use the "<layer name>:<button name>" syntax to reference buttons defined under layers
 lmet = leader:enter
@@ -194,8 +194,8 @@ s = exit
 # nested layers can be referenced using "<parent layer>.<child layer>", and must be FULLY QUALIFIED regardless of the context
 # it is a warning to use a nested layer from outside of the "parent" (hierarchical) layer, but it is allowed
 # this means that even if you are in the context of the scroll layer, you need to reference the arrow-keys layer as scroll:arrow-keys
-# like in standard TOML, this could also be defined as [[arrow-keys]]
 # however, it can be nicer to define it at the base level to avoid an extra set of square brackets
+# as you may have guessed, this could also be defined as [[arrow-keys]].
 [scroll.arrow-keys]
 [[public]]
 enter = (layer-add scroll.arrow-keys)
