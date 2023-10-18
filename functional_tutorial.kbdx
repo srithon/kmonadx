@@ -33,9 +33,6 @@ starting-layer = base
 # any heading that contains a "keys" item is a layer
 # otherwise it is used purely for organization
 [base]
-# you need this to be able to type normally
-# if you do not specify this, you will get an error
-parent = source
 # [base.keys] defines the different keymappings for the layer
 # like in TOML, you could also mark this section with [[keys]]
 # this syntax is just used here to show that it's allowed
