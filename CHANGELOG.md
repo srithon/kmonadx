@@ -1,3 +1,7 @@
+# 0.3.5
+
+- Allow layer references in constants (`button = (cmd-button "/bin/bash $layer:my-argument")`)
+
 # 0.3.4
 
 - Fix layer reference parsing within Lispy buttons (`(tap-hold 50 @leader:enter XX)`)
