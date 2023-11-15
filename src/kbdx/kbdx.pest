@@ -138,7 +138,7 @@ builtin_constant_reference = ${
 }
 
 user_constant_reference = ${
-  "$" ~ identifier
+  "$" ~ (reference | identifier)
 }
 
 button_alias = ${

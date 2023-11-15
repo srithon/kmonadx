@@ -731,29 +731,32 @@ impl<'a, 'b> Compiler<'a, 'b> {
                     }
                 }
                 R::constant_reference => {
-                    let identifier = pair
+                    let identifier_or_reference = pair
                         .into_inner()
                         .next()
                         .expect("Constant references must have an inner reference type")
                         .into_inner()
                         .next()
-                        .expect("Constant references must have an inner identifier");
+                        .expect("Constant references must have an inner identifier|reference");
 
                     // TODO: repeated code #constant_reference
                     let lookup =
                         // NOTE: not expecting a constant this time
-                        self.lookup_button(identifier, context, LookupButtonType::NodeIndex, false);
+                        self.lookup_button(identifier_or_reference, context, LookupButtonType::NodeIndex, false);
 
-                    if let NodeIndexOrButton::Index(index) = lookup {
-                        self.alias_dependency_graph
-                            .lookup_node_by_index(index)
-                            .unwrap_processed_ref()
-                            .as_ref()
-                            .map(|(string, value_type)| (string.clone(), value_type.clone()))
-                            // throw away the error because we already reported it
-                            .map_err(|_| eyre!("Placeholder error"))
-                    } else {
-                        bail!("")
+                    match lookup {
+                        NodeIndexOrButton::Index(index) => {
+                            self.alias_dependency_graph
+                                .lookup_node_by_index(index)
+                                .unwrap_processed_ref()
+                                .as_ref()
+                                .map(|(string, value_type)| (string.clone(), value_type.clone()))
+                                // throw away the error because we already reported it
+                                .map_err(|_| eyre!("Placeholder error"))
+                        }
+                        NodeIndexOrButton::Button(button) => {
+                            return Err(button.expect_err("lookup_button must only return a Button in case of errors"));
+                        }
                     }
                 }
                 // we can create a constant-only button because the contents of the button will
