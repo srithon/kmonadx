@@ -86,7 +86,7 @@ impl<'a, T> Layer<'a, T> {
         for (old_key, parent_key) in self.keys.iter_mut().zip(parent.keys.iter()) {
             if !parent_key.is_inherited() {
                 if old_key.is_inherited() {
-                    *old_key = *parent_key;
+                    old_key.value = parent_key.value;
                 }
             }
         }

@@ -1,3 +1,24 @@
+# 0.3.6
+
+- Fix buttons not being able to be overriden more than once in multi-inheritance
+    - In the following example, `x` would be incorrectly bound to `y` in `foo`
+```kbdx
+[a]
+[[keys]]
+x = 'x'
+
+[b]
+[[keys]]
+x = 'y'
+
+[c]
+[[keys]]
+x = 'z'
+
+[foo]
+parent = { a, b, c }
+```
+
 # 0.3.5
 
 - Allow layer references in constants (`button = (cmd-button "/bin/bash $layer:my-argument")`)
