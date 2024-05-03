@@ -176,12 +176,12 @@ impl<'a> DiagnosticAggregator<'a> {
 
     /// Aggregates total number of errors over all files in db.
     pub fn error_count(&self) -> usize {
-        self.file_db.iter().map(|f| f.error_count()).sum()
+        self.file_db.iter().map(|f| f.errors.len()).sum()
     }
 
     /// Aggregates total number of warnings over all files in db.
     pub fn warning_count(&self) -> usize {
-        self.file_db.iter().map(|f| f.warning_count()).sum()
+        self.file_db.iter().map(|f| f.warnings.len()).sum()
     }
 }
 
@@ -259,14 +259,6 @@ impl<'a> FileDiagnostics<'a> {
     /// Returns the current list of warnings for the given file.
     pub fn warnings(&self) -> &[Diagnostic] {
         &self.warnings
-    }
-
-    pub fn error_count(&self) -> usize {
-        self.errors.len()
-    }
-
-    pub fn warning_count(&self) -> usize {
-        self.warnings.len()
     }
 
     /// Returns the name of the file associated with the [FileDiagnostics] instance.

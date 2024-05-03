@@ -292,7 +292,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
     /// Returns true if there are errors in the current file, false otherwise
     fn has_errors(&self) -> bool {
-        unsafe { (*self.file_diagnostics.get()).error_count() != 0 }
+        unsafe { (*self.file_diagnostics.get()).errors().len() != 0 }
     }
 
     /// Creates a warning diagnostic in the current file and returns a handle to it
