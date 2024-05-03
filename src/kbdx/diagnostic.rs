@@ -107,19 +107,19 @@ impl<'a> DiagnosticAggregator<'a> {
     }
 
     /// Emits all file diagnostics to the provided [WriteColor] implementation.
+    /// Returns [Err] if there was an error while emitting diagnostics.
+    /// Returns [Ok()] otherwise.
     fn emit_all(
         &self,
         writer: &mut impl WriteColor,
         config: Config,
-    ) -> Result<ExitStatus, codespan_reporting::files::Error> {
+    ) -> Result<(), codespan_reporting::files::Error> {
         // helper macro for emitting a single diagnostic
         macro_rules! emit {
             ($diagnostic:expr) => {{
                 codespan_reporting::term::emit(writer, &config, &self, &$diagnostic)?;
             }};
         }
-
-        let mut counted_errors = 0;
 
         for file_diagnostics in &self.file_db {
             for warning in &file_diagnostics.warnings {
@@ -128,7 +128,7 @@ impl<'a> DiagnosticAggregator<'a> {
                     .with_labels(warning.messages.to_owned())
                     .with_notes(warning.notes.to_owned());
 
-                emit!(codespan_warning)
+                emit!(codespan_warning);
             }
 
             for error in &file_diagnostics.errors {
@@ -138,17 +138,10 @@ impl<'a> DiagnosticAggregator<'a> {
                     .with_notes(error.notes.to_owned());
 
                 emit!(codespan_error);
-                counted_errors += 1;
             }
         }
 
-        let exit_code = if counted_errors == 0 {
-            ExitStatus::Success
-        } else {
-            ExitStatus::Failure
-        };
-
-        Ok(exit_code)
+        Ok(())
     }
 
     /// Allocates a new buffer and emits all of the diagnostics to said buffer, returning it along
@@ -156,10 +149,7 @@ impl<'a> DiagnosticAggregator<'a> {
     pub fn emit_all_to_buffer(
         &self,
         use_ansi: bool,
-    ) -> (
-        Vec<u8>,
-        Result<ExitStatus, codespan_reporting::files::Error>,
-    ) {
+    ) -> Result<Vec<u8>, codespan_reporting::files::Error> {
         let mut buf = if use_ansi {
             Buffer::ansi()
         } else {
@@ -167,20 +157,31 @@ impl<'a> DiagnosticAggregator<'a> {
         };
 
         let config = codespan_reporting::term::Config::default();
-        let result = self.emit_all(&mut buf, config);
+        self.emit_all(&mut buf, config)?;
         let bytes = buf.into_inner();
-        (bytes, result)
+
+        Ok(bytes)
     }
 
     /// Prints all of the diagnostics to stderr and returns the exit code of the program, or
     /// a reason why the printing failed
-    pub fn emit_all_to_stderr(&self) -> Result<ExitStatus, codespan_reporting::files::Error> {
+    pub fn emit_all_to_stderr(&self) -> Result<(), codespan_reporting::files::Error> {
         let writer = StandardStream::stderr(ColorChoice::Always);
         let config = codespan_reporting::term::Config::default();
 
         let mut writer_lock = writer.lock();
 
         self.emit_all(&mut writer_lock, config)
+    }
+
+    /// Aggregates total number of errors over all files in db.
+    pub fn error_count(&self) -> usize {
+        self.file_db.iter().map(|f| f.error_count()).sum()
+    }
+
+    /// Aggregates total number of warnings over all files in db.
+    pub fn warning_count(&self) -> usize {
+        self.file_db.iter().map(|f| f.warning_count()).sum()
     }
 }
 

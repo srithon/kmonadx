@@ -102,7 +102,11 @@ fn _main() -> Result<usize> {
     // shutdown is needed it is recommended to only call this function at a known point where there
     // are no more destructors left to run.
     // END QUOTE
-    let exit_code: usize = diagnostics.emit_all_to_stderr()?.into();
+    diagnostics.emit_all_to_stderr()?;
+
+    // now, count number of errors
+    let exit_code = if diagnostics.error_count() > 0 { 1 } else { 0 };
+
     Ok(exit_code)
 }
 
