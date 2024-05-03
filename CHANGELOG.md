@@ -1,3 +1,7 @@
+# 0.4.0
+
+- Refactored `diagnostic` module to be more usable as a library
+
 # 0.3.6
 
 - Fix buttons not being able to be overriden more than once in multi-inheritance
