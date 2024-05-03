@@ -151,6 +151,27 @@ impl<'a> DiagnosticAggregator<'a> {
         Ok(exit_code)
     }
 
+    /// Allocates a new buffer and emits all of the diagnostics to said buffer, returning it along
+    /// with the exit code of the program, or a reason why the printing failed
+    pub fn emit_all_to_buffer(
+        &self,
+        use_ansi: bool,
+    ) -> (
+        Vec<u8>,
+        Result<ExitStatus, codespan_reporting::files::Error>,
+    ) {
+        let mut buf = if use_ansi {
+            Buffer::ansi()
+        } else {
+            Buffer::no_color()
+        };
+
+        let config = codespan_reporting::term::Config::default();
+        let result = self.emit_all(&mut buf, config);
+        let bytes = buf.into_inner();
+        (bytes, result)
+    }
+
     /// Prints all of the diagnostics to stderr and returns the exit code of the program, or
     /// a reason why the printing failed
     pub fn emit_all_to_stderr(&self) -> Result<ExitStatus, codespan_reporting::files::Error> {
