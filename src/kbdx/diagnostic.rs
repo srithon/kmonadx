@@ -1,12 +1,11 @@
 use codespan_reporting::diagnostic::{Diagnostic as CodespanDiagnostic, *};
-use codespan_reporting::files::{ Files, SimpleFiles };
-use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
+use codespan_reporting::files::{Error, Files, SimpleFile};
+use codespan_reporting::term::termcolor::{Buffer, ColorChoice, StandardStream, WriteColor};
+use codespan_reporting::term::Config;
 
 use std::ops::Range;
 
 use pest::Span;
-
-type Source<'a> = &'a str;
 
 /// Enum listing the the different exit statuses.
 ///
@@ -29,86 +28,138 @@ impl Into<usize> for ExitStatus {
     }
 }
 
+/// Re-export codespan reporting's error type for errors relating to the Diagnostics aggregation
+/// itself.
+pub use codespan_reporting::files::Error as MetaError;
+
 /// Contains all diagnostics generated during the program.
 ///
 /// Diagnostics are added through [FileDiagnostics], which allow you to add messages pertaining to
 /// a single file at a time.
 #[derive(Debug)]
 pub struct DiagnosticAggregator<'a> {
-    file_db: SimpleFiles<String, Source<'a>>,
-    errors: Vec<Diagnostic>,
-    warnings: Vec<Diagnostic>,
+    file_db: Vec<FileDiagnostics<'a>>,
 }
 
 impl<'a> Default for DiagnosticAggregator<'a> {
     fn default() -> DiagnosticAggregator<'a> {
         DiagnosticAggregator {
-            file_db: SimpleFiles::new(),
-            errors: Vec::new(),
-            warnings: Vec::new(),
+            file_db: Vec::new(),
         }
     }
 }
 
-impl<'a> DiagnosticAggregator<'a> {
-    /// Create a [FileDiagnostics] handle.
-    ///
-    /// Note that because this function takes a mutable reference to `self`, only one
-    /// [FileDiagnostics] instance may safely exist at a time
-    pub fn new_file<'b>(
-        &'b mut self,
-        file_name: String,
-        file_source: &'a str,
-    ) -> FileDiagnostics<'b, 'a> {
-        let file_id = self.file_db.add(file_name, file_source);
-        FileDiagnostics::new(file_id, self)
+type FileId = usize;
+type FileName<'a> = &'a str;
+type FileSource<'a> = &'a str;
+
+impl<'a> Files<'a> for &'a DiagnosticAggregator<'a> {
+    type FileId = FileId;
+    type Name = FileName<'a>;
+    type Source = FileSource<'a>;
+
+    fn name(&self, file_id: usize) -> Result<Self::Name, MetaError> {
+        self.get_file_handle(file_id).map(|h| h.file_name())
     }
 
-    /// Prints all of the diagnostics to stderr and returns the exit code of the program, or
-    /// a reason why the printing failed
-    pub fn emit_all(self) -> Result<ExitStatus, codespan_reporting::files::Error> {
-        let writer = StandardStream::stderr(ColorChoice::Always);
-        let config = codespan_reporting::term::Config::default();
+    fn source(&self, file_id: usize) -> Result<Self::Source, MetaError> {
+        self.get_file_handle(file_id).map(|h| h.file_contents())
+    }
 
-        let mut writer_lock = writer.lock();
+    fn line_index(&self, file_id: usize, byte_index: usize) -> Result<usize, MetaError> {
+        self.get_file_handle(file_id)
+            .and_then(|h| h.file.line_index((), byte_index))
+    }
 
+    fn line_range(&self, file_id: usize, line_index: usize) -> Result<Range<usize>, Error> {
+        self.get_file_handle(file_id)
+            .and_then(|h| h.file.line_range((), line_index))
+    }
+}
+
+impl<'a> DiagnosticAggregator<'a> {
+    /// Create a new [FileDiagnostics] and return its [FileId]. You can then use
+    /// [Self::get_file_handle] or [Self::get_file_handle_mut] to get access to the
+    /// [FileDiagnostics].
+    pub fn new_file(&mut self, file_name: &'a str, file_contents: &'a str) -> FileId {
+        let file_id = self.file_db.len();
+        let file_diagnostics = FileDiagnostics::new(file_id, file_name, file_contents);
+        self.file_db.push(file_diagnostics);
+        file_id
+    }
+
+    /// Returns an immutable reference to the [FileDiagnostics].
+    /// Throws [MetaError::FileMissing] if the given [FileId] is invalid.
+    pub fn get_file_handle<'b>(
+        &'b self,
+        file_id: FileId,
+    ) -> Result<&'b FileDiagnostics<'b>, MetaError> {
+        self.file_db.get(file_id).ok_or(MetaError::FileMissing)
+    }
+
+    /// Returns a mutable reference to the [FileDiagnostics].
+    /// Throws [MetaError::FileMissing] if the given [FileId] is invalid.
+    pub fn get_file_handle_mut<'b>(
+        &'b mut self,
+        file_id: FileId,
+    ) -> Result<&'b mut FileDiagnostics<'a>, MetaError> {
+        self.file_db.get_mut(file_id).ok_or(MetaError::FileMissing)
+    }
+
+    /// Emits all file diagnostics to the provided [WriteColor] implementation.
+    fn emit_all(
+        &self,
+        writer: &mut impl WriteColor,
+        config: Config,
+    ) -> Result<ExitStatus, codespan_reporting::files::Error> {
         // helper macro for emitting a single diagnostic
         macro_rules! emit {
             ($diagnostic:expr) => {{
-                codespan_reporting::term::emit(
-                    &mut writer_lock,
-                    &config,
-                    &self.file_db,
-                    &$diagnostic,
-                )?;
+                codespan_reporting::term::emit(writer, &config, &self, &$diagnostic)?;
             }};
         }
 
-        let exit_code = if self.errors.len() == 0 {
+        let mut counted_errors = 0;
+
+        for file_diagnostics in &self.file_db {
+            for warning in &file_diagnostics.warnings {
+                let codespan_warning = CodespanDiagnostic::warning()
+                    .with_message(warning.headline.to_owned())
+                    .with_labels(warning.messages.to_owned())
+                    .with_notes(warning.notes.to_owned());
+
+                emit!(codespan_warning)
+            }
+
+            for error in &file_diagnostics.errors {
+                let codespan_error = CodespanDiagnostic::error()
+                    .with_message(error.headline.to_owned())
+                    .with_labels(error.messages.to_owned())
+                    .with_notes(error.notes.to_owned());
+
+                emit!(codespan_error);
+                counted_errors += 1;
+            }
+        }
+
+        let exit_code = if counted_errors == 0 {
             ExitStatus::Success
         } else {
             ExitStatus::Failure
         };
 
-        for warning in self.warnings {
-            let codespan_warning = CodespanDiagnostic::warning()
-                .with_message(warning.headline)
-                .with_labels(warning.messages)
-                .with_notes(warning.notes);
-
-            emit!(codespan_warning)
-        }
-
-        for error in self.errors {
-            let codespan_error = CodespanDiagnostic::error()
-                .with_message(error.headline)
-                .with_labels(error.messages)
-                .with_notes(error.notes);
-
-            emit!(codespan_error)
-        }
-
         Ok(exit_code)
+    }
+
+    /// Prints all of the diagnostics to stderr and returns the exit code of the program, or
+    /// a reason why the printing failed
+    pub fn emit_all_to_stderr(&self) -> Result<ExitStatus, codespan_reporting::files::Error> {
+        let writer = StandardStream::stderr(ColorChoice::Always);
+        let config = codespan_reporting::term::Config::default();
+
+        let mut writer_lock = writer.lock();
+
+        self.emit_all(&mut writer_lock, config)
     }
 }
 
@@ -129,25 +180,26 @@ impl<'a> DiagnosticAggregator<'a> {
 //
 /// A single-file view into [DiagnosticAggregator].
 #[derive(Debug)]
-pub struct FileDiagnostics<'a, 'b> {
-    file_id: usize,
-    diagnostic_aggregator: &'a mut DiagnosticAggregator<'b>,
-    warning_count: usize,
-    error_count: usize,
+pub struct FileDiagnostics<'a> {
+    file_id: FileId,
+    file: SimpleFile<FileName<'a>, FileSource<'a>>,
+    warnings: Vec<Diagnostic>,
+    errors: Vec<Diagnostic>,
 }
 
-impl<'a, 'b> FileDiagnostics<'a, 'b> {
+impl<'a> FileDiagnostics<'a> {
     /// Creates a new [FileDiagnostics] from the [SimpleFiles] database's `file_id` and a mutable
     /// reference to the [DiagnosticAggregator]
     fn new(
-        file_id: usize,
-        diagnostic_aggregator: &'a mut DiagnosticAggregator<'b>,
-    ) -> FileDiagnostics<'a, 'b> {
+        file_id: FileId,
+        file_name: FileName<'a>,
+        file_contents: FileSource<'a>,
+    ) -> FileDiagnostics<'a> {
         FileDiagnostics {
             file_id,
-            diagnostic_aggregator,
-            warning_count: 0,
-            error_count: 0,
+            file: SimpleFile::new(file_name, file_contents),
+            warnings: Vec::new(),
+            errors: Vec::new(),
         }
     }
 
@@ -165,34 +217,34 @@ impl<'a, 'b> FileDiagnostics<'a, 'b> {
     /// a mutable reference to it
     pub fn error<'ret>(&'ret mut self, headline: impl Into<String>) -> &'ret mut Diagnostic {
         let diagnostic = self.with_headline(headline.into());
-        self.diagnostic_aggregator.errors.push(diagnostic);
-        self.error_count += 1;
-        self.diagnostic_aggregator.errors.last_mut().unwrap()
+        self.errors.push(diagnostic);
+        self.errors.last_mut().unwrap()
     }
 
     /// Creates a `warning` [Diagnostic] in the underlying [DiagnosticAggregator] and returns
     /// a mutable reference to it
     pub fn warning<'ret>(&'ret mut self, headline: impl Into<String>) -> &'ret mut Diagnostic {
         let diagnostic = self.with_headline(headline.into());
-        self.diagnostic_aggregator.warnings.push(diagnostic);
-        self.warning_count += 1;
-        self.diagnostic_aggregator.warnings.last_mut().unwrap()
+        self.warnings.push(diagnostic);
+        self.warnings.last_mut().unwrap()
     }
 
     pub fn error_count(&self) -> usize {
-        self.error_count
+        self.errors.len()
     }
 
     pub fn warning_count(&self) -> usize {
-        self.warning_count
+        self.warnings.len()
     }
 
-    pub fn file_name(&self) -> String {
-        self.diagnostic_aggregator.file_db.name(self.file_id).unwrap()
+    /// Returns the name of the file associated with the [FileDiagnostics] instance.
+    pub fn file_name(&self) -> &str {
+        self.file.name()
     }
 
+    /// Returns the contents of the file associated with the [FileDiagnostics] instance.
     pub fn file_contents(&self) -> &str {
-        self.diagnostic_aggregator.file_db.source(self.file_id).unwrap()
+        self.file.source()
     }
 }
 
@@ -200,7 +252,7 @@ impl<'a, 'b> FileDiagnostics<'a, 'b> {
 /// and notes that follow it
 #[derive(Debug)]
 pub struct Diagnostic {
-    file_id: usize,
+    file_id: FileId,
     headline: String,
     messages: Vec<Label<usize>>,
     notes: Vec<String>,

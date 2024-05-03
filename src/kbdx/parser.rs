@@ -143,11 +143,11 @@ pub struct Data<'a, T> {
 
 pub struct Parser<'a, 'b> {
     pub(in crate::kbdx) input_string: &'a str,
-    pub(in crate::kbdx) file_diagnostics: FileDiagnostics<'a, 'b>,
+    pub(in crate::kbdx) file_diagnostics: &'b mut FileDiagnostics<'a>,
 }
 
 impl<'a, 'b> Parser<'a, 'b> {
-    pub fn new(input_string: &'a str, file_diagnostics: FileDiagnostics<'a, 'b>) -> Parser<'a, 'b> {
+    pub fn new(input_string: &'a str, file_diagnostics: &'b mut FileDiagnostics<'a>) -> Parser<'a, 'b> {
         Parser {
             input_string,
             file_diagnostics,

@@ -192,7 +192,7 @@ impl<'layer, T> Display for SourceLayer<'layer, T> {
 pub struct Compiler<'a, 'b> {
     parser_data: Data<'a, ProcessedButton<'a>>,
     alias_dependency_graph: DependencyGraph<LazyButton<'a, ProcessedButton<'a>>>,
-    file_diagnostics: UnsafeCell<FileDiagnostics<'a, 'b>>,
+    file_diagnostics: UnsafeCell<&'b mut FileDiagnostics<'a>>,
 }
 
 mod parse {

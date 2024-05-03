@@ -35,7 +35,7 @@ fn _main() -> Result<usize> {
     // errors
     let files_content = UnsafeCell::new(Vec::with_capacity(cli.filenames.len()));
 
-    for mut file_name in cli.filenames {
+    for file_name in &cli.filenames {
         let file_contents = std::fs::read_to_string(&file_name)
             .wrap_err(format!("Unable to read file: {:?}", file_name))
             .suggestion("Please specify a file that exists")?;
@@ -46,13 +46,16 @@ fn _main() -> Result<usize> {
             files_content_ref.last().unwrap()
         };
 
-        let mut file_handle = diagnostics.new_file(
+        let file_id = diagnostics.new_file(
             file_name
                 .to_str()
-                .ok_or_else(|| eyre!("Filename is not valid unicode!"))?
-                .to_owned(),
+                .ok_or_else(|| eyre!("Filename is not valid unicode!"))?,
             file_contents,
         );
+
+        let file_handle = diagnostics
+            .get_file_handle_mut(file_id)
+            .expect("Couldn't read newly created file handle!");
 
         // OPTIMIZE: shouldn't have to read the file before handling this case
         if let Some(ext) = file_name.extension() {
@@ -74,6 +77,8 @@ fn _main() -> Result<usize> {
                 Ok(compiler) => {
                     match compiler.compile_string() {
                         Ok(string) => {
+                            let mut file_name = file_name.clone();
+
                             if !cli.check {
                                 // replace kbdx extension with kbd or append .kbd if there is no
                                 // extension
@@ -97,7 +102,7 @@ fn _main() -> Result<usize> {
     // shutdown is needed it is recommended to only call this function at a known point where there
     // are no more destructors left to run.
     // END QUOTE
-    let exit_code: usize = diagnostics.emit_all()?.into();
+    let exit_code: usize = diagnostics.emit_all_to_stderr()?.into();
     Ok(exit_code)
 }
 
