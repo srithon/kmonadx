@@ -251,6 +251,16 @@ impl<'a> FileDiagnostics<'a> {
         self.warnings.last_mut().unwrap()
     }
 
+    /// Returns the current list of errors for the given file.
+    pub fn errors(&self) -> &[Diagnostic] {
+        &self.errors
+    }
+
+    /// Returns the current list of warnings for the given file.
+    pub fn warnings(&self) -> &[Diagnostic] {
+        &self.warnings
+    }
+
     pub fn error_count(&self) -> usize {
         self.errors.len()
     }
@@ -313,6 +323,23 @@ impl Diagnostic {
     pub fn add_note(&mut self, note: impl Into<String>) -> &mut Self {
         self.notes.push(note.into());
         self
+    }
+
+    /// Gets the `headline` for the [Diagnostic].
+    pub fn headline(&self) -> &str {
+        &self.headline
+    }
+
+    /// Gets the list of messages for the [Diagnostic].
+    /// These messages directly annotate snippets from the source code.
+    pub fn messages(&self) -> &[Label<usize>] {
+        &self.messages
+    }
+
+    /// Gets the list of notes for the [Diagnostic].
+    /// These notes are for explanations not tied to any specific part of the input.
+    pub fn notes(&self) -> &[String] {
+        &self.notes
     }
 }
 
