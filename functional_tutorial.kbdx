@@ -1,6 +1,5 @@
-# -*- TOML -*-
-# vim: syntax=toml
-# ^ sets syntax highlighting rules for vim and emacs
+# vim: syntax=ini
+# ^ sets syntax highlighting rules for vim
 #
 # kbdx provides 4 implicit layers which can be inherited from
 # 1. "source": a layer where each key is mapped to itself. This is useful for

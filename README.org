@@ -13,7 +13,7 @@ If the following features interest you, please proceed to the [[#documentation][
 ** Declarative bindings
 Rather than having to define a layer with every key from the source layer, you only need to define the keys you want to override!
 The rest will be _inherited_ from the parent layers; more on that later.
-#+begin_src toml
+#+begin_src ini
 [layer]
 [[keys]]
 a = 'b'
@@ -21,7 +21,7 @@ b = 'c'
 #+end_src
 ** Layer inheritance
 Layers can include keys from other layers!
-#+begin_src toml
+#+begin_src ini
 [layer1]
 [[keys]]
 a = 'b'
@@ -40,7 +40,7 @@ parent = { layer1, layer2 }
 If ~layer2~ defined a key for ~a~, it would override the binding from ~layer1~, since multi-inheritance is sequential.
 ** Access modifiers for aliases
 Buttons defined in layers can be ~private~ or ~public~; ~private~ buttons are only accessible from within the layer, while ~public~ buttons can be accessed from outside the layer!
-#+begin_src toml
+#+begin_src ini
 [layer1]
 [[private]]
 # this button cannot be accessed from outside the layer
@@ -60,7 +60,7 @@ b = layer1:public-button
 #+end_src
 
 You can also define global buttons in the special ~aliases~ table.
-#+begin_src toml
+#+begin_src ini
 [aliases]
 global-button = (tap-hold-next-release 100 'a' 'lshift')
 
@@ -70,7 +70,7 @@ a = global-button
 #+end_src
 ** Layer-namespaced aliases
 You can reuse names in different layers, since they are namespaced to the layer!
-#+begin_src toml
+#+begin_src ini
 [layer1]
 [[public]]
 some-button = 'a'
@@ -91,7 +91,7 @@ b = layer2:some-button
 #+end_src
 ** Topographical sorting of aliases
 Unlike in KBD, you don't have to worry about the order of your bindings, since the compiler will automatically sort them in the output based on which aliases require others!
-#+begin_src toml
+#+begin_src ini
 [aliases]
 button1 = (tap-hold 100 @button2 @button3)
 button2 = (tap-hold 100 @button3 @button4)
@@ -101,14 +101,14 @@ button4 = 'b'
 
 Note that we still cannot have circular dependencies (KMonad wouldn't be able to parse the configuration); if you do you will get a compilation error.
 Thus, you /cannot/ do anything like this:
-#+begin_src toml
+#+begin_src ini
 [aliases]
 button1 = (tap-hold 100 @button2)
 button2 = (tap-hold 100 @button1)
 #+end_src
 ** Numeric and string constants with interpolation
 You can define constants and interpolate them into Lisp buttons!
-#+begin_src toml
+#+begin_src ini
 [layer1]
 [[private]]
 tap-hold-delay = 50
@@ -125,7 +125,7 @@ Unlike in KBD, where you must explicitly define a ~src~ layer which contains all
 Note that this /may/ have some consequences with certain KMonad buttons that react to "any" key events, since they may not work with keys that are not present in the source layer.
 
 If you have any issues that arise from this, consider defining your own source layer like this:
-#+begin_src toml
+#+begin_src ini
 [src-layer]
 [[keys]]
 a = 'a'
