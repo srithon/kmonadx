@@ -1,0 +1,2 @@
+# make GitHub syntax-highlight kbdx files as ini
+*.kbdx linguist-language=ini
