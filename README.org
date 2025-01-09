@@ -3,6 +3,8 @@
 *An extension language for* ~kbd~: *the keyboard programming manager [[https://github.com/kmonad/kmonad][KMonad]]'s configuration language.*
 #+end_center
 
+Try it out in your browser with [[https://srithon.github.io/kmonadx-playground/][kmonadx-playground]]!
+
 * Introduction
 KMonad is an incredibly powerful tool, but its configuration can be quite verbose, and the base language lacks several features which could drasticly reduce boilerplate.
 Layer inheritance and declarative bindings (~i -> j~) are 2 of those features which could easily be built on top of the language; rather than attempting to modify the core language, potentially adding unnecessary complexity, creating a language that transpiled to ~kbd~ would be much simpler, much more maintainable and would allow for a lot more syntactic flexibility.
