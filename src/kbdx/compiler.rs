@@ -1142,9 +1142,9 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
         let default_parent = {
             if configuration.fallthrough {
-                fallthrough_layer.clone()
+                fallthrough_layer.clone_as_parent()
             } else {
-                block_layer.clone()
+                block_layer.clone_as_parent()
             }
         };
 
@@ -1203,7 +1203,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
             let mut parents = layer.parent_name.iter();
             let mut new_layer: ProcessedLayer<ProcessedButton> =
                 if let Some(parent) = parents.next() {
-                    process_layer(processed_layers, state, parent.as_str()).clone()
+                    process_layer(processed_layers, state, parent.as_str()).clone_as_parent()
                 } else {
                     // NOTE: this usage of `transmute` is justified earlier in the function
                     unsafe {
@@ -1211,7 +1211,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                             &state.default_parent,
                         )
                     }
-                    .clone()
+                    .clone_as_parent()
                 };
 
             for parent_name in parents {
@@ -1297,7 +1297,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
         write!(
             string_buffer,
             "{}",
-            SourceLayer(process_layer_state.source_layer.clone())
+            SourceLayer(process_layer_state.source_layer.clone_as_parent())
         )
         .expect("Writing to string buffer must not error");
 

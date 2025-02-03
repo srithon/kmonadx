@@ -55,10 +55,14 @@ pub struct Layer<'a, T> {
 // We manually implement `Clone` because the derive macro only creates an implementation for
 // `&Layer`, whose `clone` method would then take `&&self`, returning another `&Layer`.
 // It (maybe) does this because at the call-site, `T` is not cloneable
-impl<'a, T> Clone for Layer<'a, T> {
-    fn clone(&self) -> Self {
-        let keys = self.keys.clone();
+impl<'a, T> Layer<'a, T> {
+    pub fn clone_as_parent(&self) -> Self {
+        let mut keys = self.keys.clone();
         let aliases = self.aliases.clone();
+
+        for key in &mut keys {
+            key.is_inherited = true;
+        }
 
         Layer::new(keys, aliases)
     }
