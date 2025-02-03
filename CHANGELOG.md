@@ -1,3 +1,21 @@
+# 0.4.1
+
+- Fix bug where initial keys defined in the first parent layer could not be
+  overriden by future parent layers
+  - I'm not sure how I thought this was fixed in v0.3.6; in the following example, `1` was incorrectly bound to `a` in `c`
+```kbdx
+[a]
+[[keys]]
+1 = 'a'
+
+[b]
+[[keys]]
+1 = 'b'
+
+[c]
+parent = { a, b }
+```
+
 # 0.4.0
 
 - Refactored `diagnostic` module to be more usable as a library
